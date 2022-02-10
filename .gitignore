@@ -1,0 +1,11 @@
+*.DS_STORE
+
+.vscode
+.idea
+
+*.test
+*.out
+*.pprof
+
+tcpkv
+config.json
