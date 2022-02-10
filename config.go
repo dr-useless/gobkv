@@ -10,7 +10,8 @@ import (
 const defaultAddress = ":8002"
 
 type Config struct {
-	Address string
+	Address    string
+	AuthSecret string
 }
 
 func loadConfig() (Config, error) {
