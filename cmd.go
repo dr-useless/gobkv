@@ -20,6 +20,10 @@ type Cmd struct {
 // Takes a cmd byte slice,
 // and returns a Cmd type
 func parseCmd(cmd []byte) (Cmd, error) {
+	if len(cmd) < 1 {
+		return Cmd{}, errors.New("invalid operation")
+	}
+
 	// first byte is the operation
 	op := cmd[0]
 	if !isValidOp(op) {
@@ -28,22 +32,29 @@ func parseCmd(cmd []byte) (Cmd, error) {
 
 	log.Println("op ", string(op))
 
+	if len(cmd) < 2 {
+		// op only
+		return Cmd{
+			Op: op,
+		}, nil
+	}
+
 	// second byte is the key length
 	keyLen := int(cmd[1])
 
-	log.Println("keyLen ", keyLen)
+	// validate key length
+	if len(cmd) < 2+keyLen {
+		return Cmd{}, errors.New("key length does not match")
+	}
 
-	// get key using key length
-	key := cmd[1 : 1+keyLen]
+	// get key
+	key := cmd[1 : 2+keyLen]
 
-	log.Println("key ", string(key))
-
+	// get value from remainder of cmd
 	var value []byte
-	// value is remainder of cmd
-	if len(cmd) > 2+keyLen {
-		valStart := 1 + keyLen
+	valStart := 2 + keyLen
+	if len(cmd) > valStart {
 		value = cmd[valStart:]
-		log.Println("value ", string(value))
 	}
 
 	return Cmd{

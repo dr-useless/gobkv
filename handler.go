@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log"
 	"net"
+	"strings"
 )
 
 func handleConnection(conn net.Conn, cfg *Config, store *Store) {
@@ -21,29 +22,21 @@ func handleConnection(conn net.Conn, cfg *Config, store *Store) {
 	log.Println(conn.RemoteAddr().String(), "authorized")
 
 	for {
-		data, err := bufio.NewReader(conn).ReadBytes('\n')
+		data, err := bufio.NewReader(conn).ReadString('\n')
 		if err != nil {
 			log.Println("end ", err)
 			return
 		}
 
-		log.Println("cmd ", data)
+		trimmed := strings.TrimSuffix(data, "\n")
 
-		cmd, err := parseCmd(data)
+		cmd, err := parseCmd([]byte(trimmed))
 		if err != nil {
 			log.Println("bad cmd ", err)
 			continue
 		}
 
-		log.Println("exec ", cmd.Op, cmd.Key)
+		log.Println("exec ", string(cmd.Op), " key ", cmd.Key, " value ", string(cmd.Value))
 		store.exec(cmd, conn)
-
-		/*
-			_, err = conn.Write(data)
-			if err != nil {
-				log.Println("write error: ", err)
-				return
-			}
-		*/
 	}
 }
