@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"log"
 )
 
 const (
@@ -17,7 +16,7 @@ type Cmd struct {
 	Value []byte
 }
 
-// Takes a cmd byte slice,
+// Parses a []byte command,
 // and returns a Cmd type
 func parseCmd(cmd []byte) (Cmd, error) {
 	if len(cmd) < 1 {
@@ -29,8 +28,6 @@ func parseCmd(cmd []byte) (Cmd, error) {
 	if !isValidOp(op) {
 		return Cmd{}, errors.New("invalid operation")
 	}
-
-	log.Println("op ", string(op))
 
 	if len(cmd) < 2 {
 		// op only

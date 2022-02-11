@@ -1,6 +1,10 @@
 package main
 
-import "encoding/binary"
+import (
+	"bufio"
+	"io"
+	"net/textproto"
+)
 
 const (
 	StatusOk    = '_'
@@ -13,31 +17,23 @@ type Result struct {
 	Value  []byte
 }
 
-// Marshals a result into the following format
-// _ | _ _ _ _ | _...
-// Status | Value Length | Value
-func (r *Result) Marshal() []byte {
+func (r *Result) Write(w io.Writer) (int, error) {
 	if len(r.Value) == 0 {
 		// no value, return only status
-		out := make([]byte, 1)
-		out[0] = r.Status
-		return out
+		return w.Write([]byte{r.Status, '\r', '\n', '.', '\r', '\n'})
 	}
 
-	// + 1 for status
-	// + 4 for value length
-	out := make([]byte, len(r.Value)+5)
+	bw := bufio.NewWriter(w)
 
-	// copy status
-	out[0] = r.Status
+	// status
+	err := bw.WriteByte(r.Status)
+	if err != nil {
+		return 1, err
+	}
 
-	// copy value length
-	lenValue := make([]byte, 4)
-	binary.BigEndian.PutUint32(lenValue, uint32(len(r.Value)))
-	copy(out[1:], lenValue)
-
-	// copy value
-	copy(out[5:], r.Value)
-
-	return out
+	// value
+	dotW := textproto.NewWriter(bw).DotWriter()
+	defer dotW.Close()
+	defer bw.Flush()
+	return dotW.Write(r.Value)
 }

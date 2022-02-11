@@ -4,20 +4,21 @@ import (
 	"bufio"
 	"errors"
 	"net"
-	"strings"
+	"net/textproto"
 )
 
-func handleAuth(c net.Conn, authSecret string) error {
+func handleAuth(conn net.Conn, authSecret string) error {
 	if authSecret == "" {
 		return nil
 	}
 
-	data, err := bufio.NewReader(c).ReadString('\n')
+	r := bufio.NewReader(conn)
+	data, err := textproto.NewReader(r).ReadLine()
 	if err != nil {
 		return err
 	}
 
-	if authSecret != strings.TrimSuffix(data, "\n") {
+	if authSecret != data {
 		return errors.New("unauthorized")
 	}
 

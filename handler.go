@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"log"
 	"net"
-	"strings"
+	"net/textproto"
 )
 
 func handleConnection(conn net.Conn, cfg *Config, store *Store) {
@@ -14,7 +14,8 @@ func handleConnection(conn net.Conn, cfg *Config, store *Store) {
 	err := handleAuth(conn, cfg.AuthSecret)
 	if err != nil {
 		log.Println(conn.RemoteAddr().String(), "unauthorized")
-		conn.Write([]byte("unauthorized\r\n"))
+		result := Result{Status: StatusError}
+		result.Write(conn)
 		conn.Close()
 		return
 	}
@@ -22,22 +23,22 @@ func handleConnection(conn net.Conn, cfg *Config, store *Store) {
 	log.Println(conn.RemoteAddr().String(), "authorized")
 
 	for {
-		data, err := bufio.NewReader(conn).ReadString('\n')
+		r := bufio.NewReader(conn)
+		data, err := textproto.NewReader(r).ReadDotBytes()
 		if err != nil {
 			log.Println("end ", err)
 			return
 		}
 
-		trimmed := strings.TrimSuffix(data, "\n")
-
-		cmd, err := parseCmd([]byte(trimmed))
+		cmd, err := parseCmd(data)
 		if err != nil {
 			log.Println("bad cmd ", err)
 			continue
 		}
 
-		log.Println("exec ", string(cmd.Op), " key ", cmd.Key, " value ", cmd.Value)
+		log.Printf("exec %s, k: %s, v: %v", string(cmd.Op), cmd.Key, cmd.Value)
+
 		result := store.exec(cmd)
-		conn.Write(result.Marshal())
+		result.Write(conn)
 	}
 }
