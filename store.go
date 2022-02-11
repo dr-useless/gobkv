@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net"
 	"sync"
 )
 
@@ -28,14 +27,20 @@ func (s *Store) del(key string) {
 	delete(s.Data, key)
 }
 
-func (s *Store) exec(cmd Cmd, c net.Conn) {
+func (s *Store) exec(cmd Cmd) Result {
 	switch cmd.Op {
 	case OpGet:
-		value := s.get(cmd.Key)
-		c.Write(value)
+		return Result{
+			Status: StatusOk,
+			Value:  s.get(cmd.Key),
+		}
 	case OpPut:
 		s.put(cmd.Key, cmd.Value)
+		return Result{Status: StatusOk}
 	case OpDel:
 		s.del(cmd.Key)
+		return Result{Status: StatusOk}
+	default:
+		return Result{Status: StatusError}
 	}
 }

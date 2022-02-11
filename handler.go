@@ -36,7 +36,8 @@ func handleConnection(conn net.Conn, cfg *Config, store *Store) {
 			continue
 		}
 
-		log.Println("exec ", string(cmd.Op), " key ", cmd.Key, " value ", string(cmd.Value))
-		store.exec(cmd, conn)
+		log.Println("exec ", string(cmd.Op), " key ", cmd.Key, " value ", cmd.Value)
+		result := store.exec(cmd)
+		conn.Write(result.Marshal())
 	}
 }

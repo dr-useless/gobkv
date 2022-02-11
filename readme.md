@@ -9,3 +9,4 @@ Minimalisic key-value storage.
 - Response `[StatusCode][...Message]`
 - Persistance (FS-only for now)
 - Expiring keys
+- Replication (of master)
