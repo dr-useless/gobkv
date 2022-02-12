@@ -36,9 +36,14 @@ func handleConnection(conn net.Conn, cfg *Config, store *Store) {
 			isAuthed = handleAuth(r, cfg.AuthSecret)
 			if isAuthed {
 				log.Println(conn.RemoteAddr().String(), "authed")
+				res := Result{Status: StatusOk}
+				res.WriteOn(conn)
 			} else {
 				log.Println(conn.RemoteAddr().String(), "unauthorized")
+				res := Result{Status: StatusError}
+				res.WriteOn(conn)
 			}
+			r.Reset(conn)
 			continue
 		}
 
@@ -54,16 +59,19 @@ func handleConnection(conn net.Conn, cfg *Config, store *Store) {
 				conn.Close()
 				return
 			default:
-				log.Println("unrecognized command")
+				log.Println(conn.RemoteAddr().String(), "unrecognized command")
 				res := Result{
 					Status: StatusError,
 				}
 				res.WriteOn(conn)
 			}
-			r.Reset(conn)
 		} else {
 			log.Println(conn.RemoteAddr().String(), "unauthorized")
+			res := Result{Status: StatusError}
+			res.WriteOn(conn)
 		}
+
+		r.Reset(conn)
 	}
 }
 
