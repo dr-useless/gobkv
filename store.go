@@ -26,21 +26,3 @@ func (s *Store) del(key string) {
 	defer s.Mux.Unlock()
 	delete(s.Data, key)
 }
-
-func (s *Store) exec(cmd Cmd) Result {
-	switch cmd.Op {
-	case OpGet:
-		return Result{
-			Status: StatusOk,
-			Value:  s.get(cmd.Key),
-		}
-	case OpPut:
-		s.put(cmd.Key, cmd.Value)
-		return Result{Status: StatusOk}
-	case OpDel:
-		s.del(cmd.Key)
-		return Result{Status: StatusOk}
-	default:
-		return Result{Status: StatusError}
-	}
-}

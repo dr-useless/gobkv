@@ -2,11 +2,11 @@
 ## KV Storage over TCP
 Minimalisic key-value storage.
 
-- Simple protocol
-- Almost no serialisation overhead
+- Extremely simple protocol
+- No serialisation overhead
 
 ## TODO
-- Response `[StatusCode][...Message]`
+- List keys
 - Persistance (FS-only for now)
 - Expiring keys
 - Replication (of master)

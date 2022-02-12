@@ -2,25 +2,21 @@ package main
 
 import (
 	"bufio"
-	"errors"
-	"net"
-	"net/textproto"
+	"log"
+	"strings"
 )
 
-func handleAuth(conn net.Conn, authSecret string) error {
+func handleAuth(r *bufio.Reader, authSecret string) bool {
 	if authSecret == "" {
-		return nil
+		return true
 	}
 
-	r := bufio.NewReader(conn)
-	data, err := textproto.NewReader(r).ReadLine()
+	data, err := r.ReadString('\n')
 	if err != nil {
-		return err
+		log.Println(err)
+		return false
 	}
+	data = strings.TrimRight(data, "\t\r\n")
 
-	if authSecret != data {
-		return errors.New("unauthorized")
-	}
-
-	return nil
+	return authSecret == data
 }

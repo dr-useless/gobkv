@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"io"
-	"net/textproto"
+	"log"
 )
 
 const (
@@ -17,10 +17,10 @@ type Result struct {
 	Value  []byte
 }
 
-func (r *Result) Write(w io.Writer) (int, error) {
+func (r *Result) WriteOn(w io.Writer) (int, error) {
 	if len(r.Value) == 0 {
 		// no value, return only status
-		return w.Write([]byte{r.Status, '\r', '\n', '.', '\r', '\n'})
+		return w.Write([]byte{r.Status, '\n'})
 	}
 
 	bw := bufio.NewWriter(w)
@@ -32,8 +32,12 @@ func (r *Result) Write(w io.Writer) (int, error) {
 	}
 
 	// value
-	dotW := textproto.NewWriter(bw).DotWriter()
-	defer dotW.Close()
-	defer bw.Flush()
-	return dotW.Write(r.Value)
+	len, err := bw.Write(r.Value)
+	if err != nil {
+		log.Println("write error ", err)
+		return len + 1, err
+	}
+	bw.WriteByte('\n')
+	bw.Flush()
+	return len + 1, nil
 }
