@@ -1,3 +1,3 @@
-module github.com/dr-useless/tcpkv
+module github.com/dr-useless/gobkv
 
 go 1.17
