@@ -17,12 +17,13 @@ func main() {
 	}
 
 	// store
-	// TODO: load from configured persistance
+	// TODO: load data from configured persistance
 	store := Store{
 		Data: make(map[string][]byte),
 		Mux:  new(sync.RWMutex),
+		Cfg:  &cfg,
 	}
-	rpc.Register(store)
+	rpc.Register(&store)
 
 	l, err := net.Listen("tcp", cfg.Address)
 	if err != nil {
