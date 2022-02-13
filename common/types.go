@@ -1,9 +1,15 @@
 package common
 
-type Result struct {
+type StatusReply struct {
 	Status byte
-	Value  []byte
-	Keys   []string
+}
+
+type ValueReply struct {
+	Value []byte
+}
+
+type KeysReply struct {
+	Keys []string
 }
 
 type Args struct {
