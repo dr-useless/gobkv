@@ -1,9 +1,6 @@
 # gobkv
 ## KV Storage over TCP, using Go's net/rpc package
-Minimalisic key-value storage.
-
-- Extremely simple protocol
-- No serialisation overhead
+Minimalisic key-value storage written in Go.
 
 ## TODO
 - List keys

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/dr-useless/gobkv/rpc"
+	"github.com/dr-useless/gobkv/common"
 )
 
 const (
@@ -19,7 +19,7 @@ type Store struct {
 	Cfg  *Config
 }
 
-func (s *Store) Get(args *rpc.Args, res *rpc.Result) error {
+func (s *Store) Get(args *common.Args, res *common.Result) error {
 	if args.AuthSecret != s.Cfg.AuthSecret {
 		res.Status = StatusError
 		return errors.New("unauthorized")
@@ -31,7 +31,7 @@ func (s *Store) Get(args *rpc.Args, res *rpc.Result) error {
 	return nil
 }
 
-func (s *Store) Put(args *rpc.Args, res *rpc.Result) error {
+func (s *Store) Put(args *common.Args, res *common.Result) error {
 	if args.AuthSecret != s.Cfg.AuthSecret {
 		res.Status = StatusError
 		return errors.New("unauthorized")
@@ -43,7 +43,7 @@ func (s *Store) Put(args *rpc.Args, res *rpc.Result) error {
 	return nil
 }
 
-func (s *Store) Del(args *rpc.Args, res *rpc.Result) error {
+func (s *Store) Del(args *common.Args, res *common.Result) error {
 	if args.AuthSecret != s.Cfg.AuthSecret {
 		res.Status = StatusError
 		return errors.New("unauthorized")

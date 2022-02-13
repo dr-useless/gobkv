@@ -1,4 +1,4 @@
-package rpc
+package common
 
 type Result struct {
 	Status byte
