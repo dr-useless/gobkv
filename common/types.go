@@ -10,4 +10,5 @@ type Args struct {
 	AuthSecret string
 	Key        string
 	Value      []byte
+	Limit      int
 }

@@ -7,5 +7,5 @@
 *.out
 *.pprof
 
-tcpkv
+gobkv
 config.json

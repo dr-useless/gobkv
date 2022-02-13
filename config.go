@@ -7,10 +7,10 @@ import (
 	"os"
 )
 
-const defaultAddress = ":8002"
-
 type Config struct {
-	Address    string
+	Port       int
+	CertFile   string
+	KeyFile    string
 	AuthSecret string
 }
 
@@ -20,7 +20,7 @@ func loadConfig() (Config, error) {
 	flag.Parse()
 
 	cfg := Config{
-		Address: defaultAddress,
+		Port: 8100,
 	}
 
 	if configFile == "" {

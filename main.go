@@ -2,22 +2,18 @@ package main
 
 import (
 	"log"
-	"net"
 	"net/rpc"
 	"sync"
 )
 
 func main() {
-	log.SetPrefix("tcpkv ")
+	log.SetPrefix("gobkv ")
 
-	// config
 	cfg, err := loadConfig()
 	if err != nil {
 		log.Fatal("failed to load config ", err)
 	}
 
-	// store
-	// TODO: load data from configured persistance
 	store := Store{
 		Data: make(map[string][]byte),
 		Mux:  new(sync.RWMutex),
@@ -25,17 +21,14 @@ func main() {
 	}
 	rpc.Register(&store)
 
-	l, err := net.Listen("tcp", cfg.Address)
+	listener, err := getListener(&cfg)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	defer l.Close()
-
-	log.Printf("listening on %s\r\n", cfg.Address)
-
+	defer listener.Close()
 	for {
-		conn, err := l.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
 			log.Println(err)
 			continue
