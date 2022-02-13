@@ -1,5 +1,5 @@
-# tcpkv
-## KV Storage over TCP
+# gobkv
+## KV Storage over TCP, using Go's net/rpc package
 Minimalisic key-value storage.
 
 - Extremely simple protocol
