@@ -4,25 +4,48 @@ import (
 	"sync"
 )
 
+const (
+	StatusOk    = '_'
+	StatusError = '!'
+	StatusWarn  = '?'
+)
+
 type Store struct {
 	Data map[string][]byte
 	Mux  *sync.RWMutex
 }
 
-func (s *Store) get(key string) []byte {
+type Result struct {
+	Status byte
+	Value  []byte
+	Keys   []string
+}
+
+type Args struct {
+	Key   string
+	Value []byte
+}
+
+func (s *Store) Get(args *Args, res *Result) error {
 	s.Mux.RLock()
 	defer s.Mux.RUnlock()
-	return s.Data[key]
+	res.Value = s.Data[args.Key]
+	res.Status = StatusOk
+	return nil
 }
 
-func (s *Store) put(key string, value []byte) {
+func (s *Store) Put(args *Args, res *Result) error {
 	s.Mux.Lock()
 	defer s.Mux.Unlock()
-	s.Data[key] = value
+	s.Data[args.Key] = args.Value
+	res.Status = StatusOk
+	return nil
 }
 
-func (s *Store) del(key string) {
+func (s *Store) Del(args *Args, res *Result) error {
 	s.Mux.Lock()
 	defer s.Mux.Unlock()
-	delete(s.Data, key)
+	delete(s.Data, args.Key)
+	res.Status = StatusOk
+	return nil
 }

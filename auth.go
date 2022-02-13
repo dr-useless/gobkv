@@ -3,14 +3,16 @@ package main
 import (
 	"bufio"
 	"log"
+	"net"
 	"strings"
 )
 
-func handleAuth(r *bufio.Reader, authSecret string) bool {
+func handleAuth(conn net.Conn, authSecret string) bool {
 	if authSecret == "" {
 		return true
 	}
 
+	r := bufio.NewReader(conn)
 	data, err := r.ReadString('\n')
 	if err != nil {
 		log.Println(err)

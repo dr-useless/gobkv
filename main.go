@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net"
+	"net/rpc"
 	"sync"
 )
 
@@ -21,8 +22,9 @@ func main() {
 		Data: make(map[string][]byte),
 		Mux:  new(sync.RWMutex),
 	}
+	rpc.Register(store)
 
-	l, err := net.Listen("tcp4", cfg.Address)
+	l, err := net.Listen("tcp", cfg.Address)
 	if err != nil {
 		log.Println(err)
 		return
@@ -35,8 +37,17 @@ func main() {
 		conn, err := l.Accept()
 		if err != nil {
 			log.Println(err)
-			return
+			continue
 		}
-		go handleConnection(conn, &cfg, &store)
+
+		// auth
+		if !handleAuth(conn, cfg.AuthSecret) {
+			conn.Write([]byte("unauthorized"))
+			conn.Close()
+			continue
+		}
+
+		// authed, give to rpc
+		go rpc.ServeConn(conn)
 	}
 }
