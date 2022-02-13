@@ -39,15 +39,6 @@ func main() {
 			log.Println(err)
 			continue
 		}
-
-		// auth
-		if !handleAuth(conn, cfg.AuthSecret) {
-			conn.Write([]byte("unauthorized"))
-			conn.Close()
-			continue
-		}
-
-		// authed, give to rpc
 		go rpc.ServeConn(conn)
 	}
 }

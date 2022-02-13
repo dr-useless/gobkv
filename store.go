@@ -1,7 +1,10 @@
 package main
 
 import (
+	"errors"
 	"sync"
+
+	"github.com/dr-useless/gobkv/rpc"
 )
 
 const (
@@ -13,20 +16,14 @@ const (
 type Store struct {
 	Data map[string][]byte
 	Mux  *sync.RWMutex
+	Cfg  *Config
 }
 
-type Result struct {
-	Status byte
-	Value  []byte
-	Keys   []string
-}
-
-type Args struct {
-	Key   string
-	Value []byte
-}
-
-func (s *Store) Get(args *Args, res *Result) error {
+func (s *Store) Get(args *rpc.Args, res *rpc.Result) error {
+	if args.AuthSecret != s.Cfg.AuthSecret {
+		res.Status = StatusError
+		return errors.New("unauthorized")
+	}
 	s.Mux.RLock()
 	defer s.Mux.RUnlock()
 	res.Value = s.Data[args.Key]
@@ -34,7 +31,11 @@ func (s *Store) Get(args *Args, res *Result) error {
 	return nil
 }
 
-func (s *Store) Put(args *Args, res *Result) error {
+func (s *Store) Put(args *rpc.Args, res *rpc.Result) error {
+	if args.AuthSecret != s.Cfg.AuthSecret {
+		res.Status = StatusError
+		return errors.New("unauthorized")
+	}
 	s.Mux.Lock()
 	defer s.Mux.Unlock()
 	s.Data[args.Key] = args.Value
@@ -42,7 +43,11 @@ func (s *Store) Put(args *Args, res *Result) error {
 	return nil
 }
 
-func (s *Store) Del(args *Args, res *Result) error {
+func (s *Store) Del(args *rpc.Args, res *rpc.Result) error {
+	if args.AuthSecret != s.Cfg.AuthSecret {
+		res.Status = StatusError
+		return errors.New("unauthorized")
+	}
 	s.Mux.Lock()
 	defer s.Mux.Unlock()
 	delete(s.Data, args.Key)
