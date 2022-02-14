@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path"
 	"time"
 )
 
@@ -13,10 +14,16 @@ type Watchdog struct {
 	Cfg   *Config
 }
 
+// While watch() only takes care of writing to shards,
+// only watch if persistence is enabled
 func (w *Watchdog) watch() {
+	if !w.Cfg.Persist {
+		return
+	}
+	log.Println("persistence enabled, will periodically write to fs")
 	go w.waitForSigInt()
 	for {
-		w.writeIfMust()
+		w.writeAllShards()
 		time.Sleep(time.Duration(10) * time.Second)
 	}
 }
@@ -26,48 +33,35 @@ func (w *Watchdog) waitForSigInt() {
 	signal.Notify(c, os.Interrupt)
 	for range c {
 		log.Println("will exit cleanly")
-		w.writeIfMust()
+		w.writeAllShards()
 		os.Exit(0)
 	}
 }
 
-func (w *Watchdog) writeIfMust() {
-	w.Store.Mux.RLock()
-	mustWrite := w.Store.MustWrite
-	w.Store.Mux.RUnlock()
-	if mustWrite {
-		w.writeToFile()
+func (w *Watchdog) writeAllShards() {
+	for _, shard := range w.Store.Shards {
+		shard.writeToFile(w.Cfg)
 	}
 }
 
-func (w *Watchdog) writeToFile() {
-	if w.Cfg.PersistFile == "" {
+func (w *Watchdog) readFromShardFiles() {
+	if !w.Cfg.Persist {
 		return
 	}
-	file, err := os.Create(w.Cfg.PersistFile)
-	if err != nil {
-		log.Printf("failed to create persistence file: %s\r\n", err)
-	}
-	defer file.Close()
-	w.Store.Mux.Lock()
-	defer w.Store.Mux.Unlock()
-	gob.NewEncoder(file).Encode(&w.Store.Data)
-	w.Store.MustWrite = false
-}
-
-func (w *Watchdog) readFromFile() {
-	if w.Cfg.PersistFile == "" {
-		return
-	}
-	file, err := os.Open(w.Cfg.PersistFile)
-	if err != nil {
-		log.Printf("failed to open persistence file: %s\r\n", err)
-		return
-	}
-	w.Store.Mux.Lock()
-	defer w.Store.Mux.Unlock()
-	err = gob.NewDecoder(file).Decode(&w.Store.Data)
-	if err != nil {
-		log.Printf("failed to decode persistence file: %s\r\n", err)
+	for name, shard := range w.Store.Shards {
+		shard.Mux.Lock()
+		defer shard.Mux.Unlock()
+		fullPath := path.Join(w.Cfg.ShardDir, name+".gob")
+		file, err := os.Open(fullPath)
+		if err != nil {
+			log.Printf("failed to open shard %s\r\n", name)
+			continue
+		}
+		err = gob.NewDecoder(file).Decode(&shard.Data)
+		if err != nil {
+			log.Printf("failed to decode data in shard %s\r\n", name)
+			continue
+		}
+		log.Printf("read from shard %s", name)
 	}
 }

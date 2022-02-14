@@ -14,7 +14,9 @@ Minimalisic, highly performant key-value storage, written in Go.
   "AuthSecret": "a random string",
   "CertFile": "path/to/x509/cert.pem",
   "KeyFile": "path/to/x509/key.pem",
-  "PersistFile": "path/to/persistence/file.gob"
+  "Persist": true,
+  "ShardCount": 10,
+  "ShardDir": "shards"
 }
 ```
 
@@ -28,34 +30,20 @@ Minimalisic, highly performant key-value storage, written in Go.
   - `./gobler get this`
 
 # To do
-- Paging of persistence gobs to reduce load on file system for large datasets
 - Replication (of master)
 - Expiring keys
 - Test membership using Bloom filter before GET
 
-# Paging
-## Why
-Currently, each time the Watchdog writes the dataset to the file system, the entire set is encoded & written. The same on launch, the entire dataset is read from a single file.
+# Sharding
+To reduce load on the file system (and eventually increase capacity for concurrency), the dataset is split across the configured number of shards. When a key is written to or deleted, the target shard is flagged as changed.
 
-While being very simple, the performance of this design suffers for large datasets. It would be much better to segment/shard the data into pages.
+Watchdog periodically writes all changed shards to the file system.
 
-## How
-### Init
-When we create a new dataset, we also create the configured number of pages. Each page has a unique ID, a random 32-bit hash. The filename of each page is `[BASE64URL_HASH].gob`.
-
-### Key:Page mapping
-Distance from key to page is calculated as:
+## Key:Shard mapping
+Distance from key to shard is calculated as:
 ```go
-d := hash(key) ^ pageID
+d := hash(key) ^ shardID
 ```
 The `^` represents XOR.
 
-Target page ID is the one with smallest distance.
-
-### Write
-When a key is written to or deleted, the target page must be flagged for writing by the Watchdog.
-
-### Read
-As MVP, all keys will be stored in memory.
-
-An enhancement will be to add an option to cache recently used keys, and leave the rest in file storage. Similar to Redis' virtual memory.
+Target shard ID is the one with smallest distance.
