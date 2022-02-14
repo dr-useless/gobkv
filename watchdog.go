@@ -20,7 +20,6 @@ func (w *Watchdog) watch() {
 	if !w.Cfg.Persist {
 		return
 	}
-	log.Println("persistence enabled, will periodically write to fs")
 	go w.waitForSigInt()
 	for {
 		w.writeAllShards()
