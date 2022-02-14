@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/gob"
 	"errors"
+	"log"
+	"os"
 	"strings"
 	"sync"
 
@@ -28,10 +31,11 @@ func (s *Store) Put(args *common.Args, res *common.StatusReply) error {
 	if args.AuthSecret != s.Cfg.AuthSecret {
 		return errors.New("unauthorized")
 	}
+	res.Status = common.StatusOk
 	s.Mux.Lock()
 	defer s.Mux.Unlock()
 	s.Data[args.Key] = args.Value
-	res.Status = common.StatusOk
+	s.writeToFile()
 	return nil
 }
 
@@ -39,10 +43,11 @@ func (s *Store) Del(args *common.Args, res *common.StatusReply) error {
 	if args.AuthSecret != s.Cfg.AuthSecret {
 		return errors.New("unauthorized")
 	}
+	res.Status = common.StatusOk
 	s.Mux.Lock()
 	defer s.Mux.Unlock()
 	delete(s.Data, args.Key)
-	res.Status = common.StatusOk
+	s.writeToFile()
 	return nil
 }
 
@@ -72,4 +77,31 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func (s *Store) writeToFile() {
+	if s.Cfg.PersistFile == "" {
+		return
+	}
+	file, err := os.Create(s.Cfg.PersistFile)
+	if err != nil {
+		log.Printf("failed to create persistence file: %s\r\n", err)
+	}
+	defer file.Close()
+	gob.NewEncoder(file).Encode(&s.Data)
+}
+
+func (s *Store) readFromFile() {
+	if s.Cfg.PersistFile == "" {
+		return
+	}
+	file, err := os.Open(s.Cfg.PersistFile)
+	if err != nil {
+		log.Printf("failed to open persistence file: %s\r\n", err)
+		return
+	}
+	err = gob.NewDecoder(file).Decode(&s.Data)
+	if err != nil {
+		log.Printf("failed to decode persistence file: %s\r\n", err)
+	}
 }

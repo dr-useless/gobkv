@@ -8,10 +8,11 @@ import (
 )
 
 type Config struct {
-	Port       int
-	CertFile   string
-	KeyFile    string
-	AuthSecret string
+	Port        int
+	CertFile    string
+	KeyFile     string
+	AuthSecret  string
+	PersistFile string
 }
 
 func loadConfig() (Config, error) {

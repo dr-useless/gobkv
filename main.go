@@ -19,6 +19,7 @@ func main() {
 		Mux:  new(sync.RWMutex),
 		Cfg:  &cfg,
 	}
+	store.readFromFile()
 	rpc.Register(&store)
 
 	listener, err := getListener(&cfg)
