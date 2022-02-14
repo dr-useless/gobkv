@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net/rpc"
-	"sync"
 )
 
 func main() {
@@ -15,10 +14,7 @@ func main() {
 	}
 
 	store := Store{
-		Data:      make(map[string][]byte),
-		Mux:       new(sync.RWMutex),
-		Cfg:       &cfg,
-		MustWrite: make(map[string]bool, cfg.ShardCount),
+		Cfg: &cfg,
 	}
 	store.ensureShards()
 
@@ -26,7 +22,7 @@ func main() {
 		Store: &store,
 		Cfg:   &cfg,
 	}
-	watchdog.readFromShards()
+	watchdog.readFromShardFiles()
 	go watchdog.watch()
 
 	rpc.Register(&store)

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/base64"
 	"encoding/gob"
 	"log"
 	"os"
@@ -25,7 +23,7 @@ func (w *Watchdog) watch() {
 	log.Println("persistence enabled, will periodically write to fs")
 	go w.waitForSigInt()
 	for {
-		w.writeIfMust()
+		w.writeAllShards()
 		time.Sleep(time.Duration(10) * time.Second)
 	}
 }
@@ -35,63 +33,35 @@ func (w *Watchdog) waitForSigInt() {
 	signal.Notify(c, os.Interrupt)
 	for range c {
 		log.Println("will exit cleanly")
-		w.writeIfMust()
+		w.writeAllShards()
 		os.Exit(0)
 	}
 }
 
-func (w *Watchdog) writeIfMust() {
-	w.Store.Mux.Lock()
-	defer w.Store.Mux.Unlock()
-	for shardName, mustWrite := range w.Store.MustWrite {
-		if mustWrite {
-			w.writeShard(shardName)
-		}
+func (w *Watchdog) writeAllShards() {
+	for _, shard := range w.Store.Shards {
+		shard.writeToFile(w.Cfg)
 	}
 }
 
-// for now, collect shard data by ranging through all keys
-// to do: shard data in memory also
-// this will also help reduce blocking
-// by having a separate mutex for each shard
-func (w *Watchdog) writeShard(shardName string) {
-	shard, _ := base64.URLEncoding.DecodeString(shardName)
-	fullPath := path.Join(w.Cfg.ShardDir, shardName+".gob")
-	file, err := os.Create(fullPath)
-	if err != nil {
-		log.Printf("failed to create shard file: %s\r\n", err)
-	}
-	defer file.Close()
-	shardData := make(map[string][]byte)
-	for key, value := range w.Store.Data {
-		closest := w.Store.getClosestShard(key)
-		if bytes.Equal(closest, shard) {
-			shardData[key] = value
-		}
-	}
-	gob.NewEncoder(file).Encode(&shardData)
-	w.Store.MustWrite[shardName] = false
-}
-
-func (w *Watchdog) readFromShards() {
+func (w *Watchdog) readFromShardFiles() {
 	if !w.Cfg.Persist {
 		return
 	}
-	w.Store.Mux.Lock()
-	defer w.Store.Mux.Unlock()
-	for i, shard := range w.Store.Shards {
-		name := getShardName(shard)
+	for name, shard := range w.Store.Shards {
+		shard.Mux.Lock()
+		defer shard.Mux.Unlock()
 		fullPath := path.Join(w.Cfg.ShardDir, name+".gob")
 		file, err := os.Open(fullPath)
 		if err != nil {
-			log.Printf("failed to open shard %v %s\r\n", i, name)
+			log.Printf("failed to open shard %s\r\n", name)
 			continue
 		}
-		err = gob.NewDecoder(file).Decode(&w.Store.Data)
+		err = gob.NewDecoder(file).Decode(&shard.Data)
 		if err != nil {
-			log.Printf("failed to decode data in shard %v %s\r\n", i, name)
+			log.Printf("failed to decode data in shard %s\r\n", name)
 			continue
 		}
-		log.Printf("read from shard %v %s", i, name)
+		log.Printf("read from shard %s", name)
 	}
 }
