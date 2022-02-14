@@ -35,7 +35,7 @@ Minimalisic, highly performant key-value storage, written in Go.
 - Test membership using Bloom filter before GET
 
 # Sharding
-To reduce load on the file system (and eventually increase capacity for concurrency), the dataset is split across the configured number of shards. When a key is written to or deleted, the target shard is flagged as changed.
+To reduce load on the file system & and decrease blocking, the dataset is split across the configured number of shards. When a key is written to or deleted, the target shard is flagged as changed.
 
 Watchdog periodically writes all changed shards to the file system.
 
