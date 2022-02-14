@@ -27,7 +27,7 @@ func (s *Store) Get(args *common.Args, res *common.ValueReply) error {
 	return nil
 }
 
-func (s *Store) Put(args *common.Args, res *common.StatusReply) error {
+func (s *Store) Set(args *common.Args, res *common.StatusReply) error {
 	if args.AuthSecret != s.Cfg.AuthSecret {
 		return errors.New("unauthorized")
 	}
