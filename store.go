@@ -12,7 +12,8 @@ type Store struct {
 	Data      map[string][]byte
 	Mux       *sync.RWMutex
 	Cfg       *Config
-	MustWrite bool
+	MustWrite map[string]bool
+	Shards    [][]byte // shard IDs
 }
 
 func (s *Store) Get(args *common.Args, res *common.ValueReply) error {
@@ -33,7 +34,8 @@ func (s *Store) Set(args *common.Args, res *common.StatusReply) error {
 	s.Mux.Lock()
 	defer s.Mux.Unlock()
 	s.Data[args.Key] = args.Value
-	s.MustWrite = true
+	closestShard := s.getClosestShard(args.Key)
+	s.MustWrite[getShardName(closestShard)] = true
 	return nil
 }
 
@@ -45,7 +47,8 @@ func (s *Store) Del(args *common.Args, res *common.StatusReply) error {
 	s.Mux.Lock()
 	defer s.Mux.Unlock()
 	delete(s.Data, args.Key)
-	s.MustWrite = true
+	closestShard := s.getClosestShard(args.Key)
+	s.MustWrite[getShardName(closestShard)] = true
 	return nil
 }
 

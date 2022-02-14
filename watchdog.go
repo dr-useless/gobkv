@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/gob"
 	"log"
 	"os"
 	"os/signal"
+	"path"
 	"time"
 )
 
@@ -13,7 +16,13 @@ type Watchdog struct {
 	Cfg   *Config
 }
 
+// While watch() only takes care of writing to shards,
+// only watch if persistence is enabled
 func (w *Watchdog) watch() {
+	if !w.Cfg.Persist {
+		return
+	}
+	log.Println("persistence enabled, will periodically write to fs")
 	go w.waitForSigInt()
 	for {
 		w.writeIfMust()
@@ -32,42 +41,57 @@ func (w *Watchdog) waitForSigInt() {
 }
 
 func (w *Watchdog) writeIfMust() {
-	w.Store.Mux.RLock()
-	mustWrite := w.Store.MustWrite
-	w.Store.Mux.RUnlock()
-	if mustWrite {
-		w.writeToFile()
+	w.Store.Mux.Lock()
+	defer w.Store.Mux.Unlock()
+	for shardName, mustWrite := range w.Store.MustWrite {
+		if mustWrite {
+			w.writeShard(shardName)
+		}
 	}
 }
 
-func (w *Watchdog) writeToFile() {
-	if w.Cfg.PersistFile == "" {
-		return
-	}
-	file, err := os.Create(w.Cfg.PersistFile)
+// for now, collect shard data by ranging through all keys
+// to do: shard data in memory also
+// this will also help reduce blocking
+// by having a separate mutex for each shard
+func (w *Watchdog) writeShard(shardName string) {
+	shard, _ := base64.URLEncoding.DecodeString(shardName)
+	fullPath := path.Join(w.Cfg.ShardDir, shardName+".gob")
+	file, err := os.Create(fullPath)
 	if err != nil {
-		log.Printf("failed to create persistence file: %s\r\n", err)
+		log.Printf("failed to create shard file: %s\r\n", err)
 	}
 	defer file.Close()
-	w.Store.Mux.Lock()
-	defer w.Store.Mux.Unlock()
-	gob.NewEncoder(file).Encode(&w.Store.Data)
-	w.Store.MustWrite = false
+	shardData := make(map[string][]byte)
+	for key, value := range w.Store.Data {
+		closest := w.Store.getClosestShard(key)
+		if bytes.Equal(closest, shard) {
+			shardData[key] = value
+		}
+	}
+	gob.NewEncoder(file).Encode(&shardData)
+	w.Store.MustWrite[shardName] = false
 }
 
-func (w *Watchdog) readFromFile() {
-	if w.Cfg.PersistFile == "" {
-		return
-	}
-	file, err := os.Open(w.Cfg.PersistFile)
-	if err != nil {
-		log.Printf("failed to open persistence file: %s\r\n", err)
+func (w *Watchdog) readFromShards() {
+	if !w.Cfg.Persist {
 		return
 	}
 	w.Store.Mux.Lock()
 	defer w.Store.Mux.Unlock()
-	err = gob.NewDecoder(file).Decode(&w.Store.Data)
-	if err != nil {
-		log.Printf("failed to decode persistence file: %s\r\n", err)
+	for i, shard := range w.Store.Shards {
+		name := getShardName(shard)
+		fullPath := path.Join(w.Cfg.ShardDir, name+".gob")
+		file, err := os.Open(fullPath)
+		if err != nil {
+			log.Printf("failed to open shard %v %s\r\n", i, name)
+			continue
+		}
+		err = gob.NewDecoder(file).Decode(&w.Store.Data)
+		if err != nil {
+			log.Printf("failed to decode data in shard %v %s\r\n", i, name)
+			continue
+		}
+		log.Printf("read from shard %v %s", i, name)
 	}
 }

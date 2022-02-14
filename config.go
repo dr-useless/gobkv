@@ -8,11 +8,13 @@ import (
 )
 
 type Config struct {
-	Port        int
-	CertFile    string
-	KeyFile     string
-	AuthSecret  string
-	PersistFile string
+	Port       int
+	CertFile   string
+	KeyFile    string
+	AuthSecret string
+	Persist    bool   // write data to file system
+	ShardCount int    // number of shards used for persistence
+	ShardDir   string // directory for shards, default is ${pwd}/shards
 }
 
 func loadConfig() (Config, error) {

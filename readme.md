@@ -14,7 +14,9 @@ Minimalisic, highly performant key-value storage, written in Go.
   "AuthSecret": "a random string",
   "CertFile": "path/to/x509/cert.pem",
   "KeyFile": "path/to/x509/key.pem",
-  "PersistFile": "path/to/persistence/file.gob"
+  "Persist": true,
+  "ShardCount": 10,
+  "ShardDir": "shards"
 }
 ```
 

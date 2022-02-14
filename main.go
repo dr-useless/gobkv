@@ -15,16 +15,18 @@ func main() {
 	}
 
 	store := Store{
-		Data: make(map[string][]byte),
-		Mux:  new(sync.RWMutex),
-		Cfg:  &cfg,
+		Data:      make(map[string][]byte),
+		Mux:       new(sync.RWMutex),
+		Cfg:       &cfg,
+		MustWrite: make(map[string]bool, cfg.ShardCount),
 	}
+	store.ensureShards()
 
 	watchdog := Watchdog{
 		Store: &store,
 		Cfg:   &cfg,
 	}
-	watchdog.readFromFile()
+	watchdog.readFromShards()
 	go watchdog.watch()
 
 	rpc.Register(&store)
