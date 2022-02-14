@@ -19,7 +19,14 @@ func main() {
 		Mux:  new(sync.RWMutex),
 		Cfg:  &cfg,
 	}
-	store.readFromFile()
+
+	watchdog := Watchdog{
+		Store: &store,
+		Cfg:   &cfg,
+	}
+	watchdog.readFromFile()
+	go watchdog.watch()
+
 	rpc.Register(&store)
 
 	listener, err := getListener(&cfg)
