@@ -63,7 +63,7 @@ func (s *Store) ensureShards() {
 		}
 		newListFile, err := os.Create(listPath)
 		if err != nil {
-			log.Fatalf("failed to create shard list: %s", err)
+			log.Fatalf("failed to create shard list, check directory exists: %s", s.Cfg.ShardDir)
 		}
 		shardNameList := s.getShardNameList()
 		gob.NewEncoder(newListFile).Encode(shardNameList)
