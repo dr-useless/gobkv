@@ -26,13 +26,18 @@ Minimalisic, highly performant key-value storage, written in Go.
 2. Bind to your gobkv instance
   `./gobler bind 127.0.0.1:8100 --auth [your_secret]`
 3. Call RPCs
-  - `./gobler set this isAwesome`
-  - `./gobler get this`
+```bash
+./gobler set coffee life
+_
+./gobler get coffee
+life
+```
 
 # To do
 - Replication (of master)
 - Expiring keys
 - Test membership using Bloom filter before GET
+- Re-sharding
 
 # Sharding
 To reduce load on the file system & and decrease blocking, the dataset is split across the configured number of shards. When a key is written to or deleted, the target shard is flagged as changed.
@@ -47,3 +52,11 @@ d := hash(key) ^ shardID
 The `^` represents XOR.
 
 Target shard ID is the one with smallest distance.
+
+## Re-sharding (to do)
+Each time the shard list is loaded, it must be compared to the configured shard count. If they do not match, a re-sharding process must occur before serving connections.
+
+1. Create new shard list in sub-directory
+2. Create new Store
+3. For each current shard, re-map all keys to their new shard
+4. Write each shard after all keys are re-mapped

@@ -22,22 +22,20 @@ type Shard struct {
 	MustWrite bool
 }
 
-func (shard *Shard) writeToFile(cfg *Config) {
+func (shard *Shard) writeToFile(shardName string, cfg *Config) {
 	if !shard.MustWrite {
 		return
 	}
 	shard.Mux.RLock()
 	defer shard.Mux.RUnlock()
-	shardName := getShardName(shard.Id)
 	fullPath := path.Join(cfg.ShardDir, shardName+".gob")
 	file, err := os.Create(fullPath)
 	if err != nil {
-		log.Printf("failed to create shard file: %s\r\n", err)
+		log.Fatalf("failed to create shard file: %s\r\n", err)
 	}
 	defer file.Close()
 	gob.NewEncoder(file).Encode(&shard.Data)
 	shard.MustWrite = false
-	log.Println("written to shard", shardName)
 }
 
 // ensures that shard files exist
@@ -93,13 +91,8 @@ func (s *Store) getClosestShard(key string) *Shard {
 	var clShard *Shard
 	var clD []byte
 	for _, shard := range s.Shards {
-		if clD == nil {
-			clShard = shard
-			clD, _ = xorBytes(shard.Id, keyHash)
-			continue
-		}
-		d, _ := xorBytes(shard.Id, keyHash)
-		if bytes.Compare(d, clD) < 0 {
+		d := xorBytes(shard.Id, keyHash)
+		if clD == nil || bytes.Compare(d, clD) < 0 {
 			clShard = shard
 			clD = d
 		}
