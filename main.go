@@ -26,13 +26,13 @@ func main() {
 	store := Store{
 		Cfg: &cfg,
 	}
-	store.ensureShards()
+	store.ensureParts()
 
 	watchdog := Watchdog{
 		Store: &store,
 		Cfg:   &cfg,
 	}
-	watchdog.readFromShardFiles()
+	watchdog.readFromPartFiles()
 	go watchdog.watch()
 
 	rpc.Register(&store)

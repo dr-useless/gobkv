@@ -2,19 +2,29 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"os"
 )
 
 type Config struct {
-	Port             int
-	CertFile         string
-	KeyFile          string
-	AuthSecret       string
-	Persist          bool   // write data to file system
-	ShardCount       int    // number of shards used for persistence
-	ShardDir         string // directory for shards, default is ${pwd}/shards
-	ShardWritePeriod int    // seconds
+	Port            int
+	CertFile        string
+	KeyFile         string
+	AuthSecret      string
+	Persist         bool   // write data to file system
+	PartCount       int    // number of partitions
+	PartDir         string // directory for partition storage, default is ${pwd}/parts
+	PartWritePeriod int    // seconds
+}
+
+func (c *Config) validate() error {
+	if c.Persist {
+		if c.PartCount < 1 {
+			return errors.New("PartCount must be greater than 0")
+		}
+	}
+	return nil
 }
 
 func loadConfig() (Config, error) {
@@ -27,7 +37,11 @@ func loadConfig() (Config, error) {
 		return cfg, nil
 	} else {
 		err := read(*configFile, &cfg)
-		return cfg, err
+		if err != nil {
+			return cfg, err
+		}
+		validityError := cfg.validate()
+		return cfg, validityError
 	}
 }
 

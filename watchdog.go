@@ -15,20 +15,20 @@ type Watchdog struct {
 	Cfg   *Config
 }
 
-// While watch() only takes care of writing to shards,
-// only watch if persistence is enabled
+// While watch() only takes care of writing to partitions,
+// will only watch if persistence is enabled
 func (w *Watchdog) watch() {
 	if !w.Cfg.Persist {
 		return
 	}
-	period := w.Cfg.ShardWritePeriod
+	period := w.Cfg.PartWritePeriod
 	if period == 0 {
 		period = 10
 	}
-	log.Printf("will write changed shards every %v seconds\r\n", period)
+	log.Printf("will write changed partitions every %v seconds\r\n", period)
 	go w.waitForSigInt()
 	for {
-		w.writeAllShards()
+		w.writeAllParts()
 		time.Sleep(time.Duration(period) * time.Second)
 	}
 }
@@ -38,7 +38,7 @@ func (w *Watchdog) waitForSigInt() {
 	signal.Notify(c, os.Interrupt)
 	for range c {
 		log.Println("will exit cleanly")
-		w.writeAllShards()
+		w.writeAllParts()
 
 		// pprof
 		stopCPUProfile()
@@ -48,36 +48,36 @@ func (w *Watchdog) waitForSigInt() {
 	}
 }
 
-func (w *Watchdog) writeAllShards() {
-	for name, shard := range w.Store.Shards {
-		shard.writeToFile(name, w.Cfg)
+func (w *Watchdog) writeAllParts() {
+	for name, part := range w.Store.Parts {
+		part.writeToFile(name, w.Cfg)
 	}
 }
 
-func (w *Watchdog) readFromShardFiles() {
+func (w *Watchdog) readFromPartFiles() {
 	if !w.Cfg.Persist {
 		return
 	}
 	wg := new(sync.WaitGroup)
-	for name, shard := range w.Store.Shards {
+	for name, part := range w.Store.Parts {
 		wg.Add(1)
-		go func(name string, shard *Shard, wg *sync.WaitGroup) {
+		go func(name string, part *Part, wg *sync.WaitGroup) {
 			defer wg.Done()
-			shard.Mux.Lock()
-			defer shard.Mux.Unlock()
-			fullPath := path.Join(w.Cfg.ShardDir, name+".gob")
+			part.Mux.Lock()
+			defer part.Mux.Unlock()
+			fullPath := path.Join(w.Cfg.PartDir, name+".gob")
 			file, err := os.Open(fullPath)
 			if err != nil {
-				log.Printf("failed to open shard %s\r\n", name)
+				log.Printf("failed to open partition %s\r\n", name)
 				return
 			}
-			err = gob.NewDecoder(file).Decode(&shard.Data)
+			err = gob.NewDecoder(file).Decode(&part.Data)
 			if err != nil {
-				log.Printf("failed to decode data in shard %s\r\n", name)
+				log.Printf("failed to decode data in partition %s\r\n", name)
 				return
 			}
-			log.Printf("read from shard %s", name)
-		}(name, shard, wg)
+			log.Printf("read from partition %s", name)
+		}(name, part, wg)
 	}
 	wg.Wait()
 }

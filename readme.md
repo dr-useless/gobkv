@@ -15,8 +15,9 @@ Minimalisic, highly performant key-value storage, written in Go.
   "CertFile": "path/to/x509/cert.pem",
   "KeyFile": "path/to/x509/key.pem",
   "Persist": true,
-  "ShardCount": 10,
-  "ShardDir": "shards"
+  "PartCount": 10,
+  "PartDir": "parts",
+  "PartWritePeriod": 10 // seconds
 }
 ```
 
@@ -37,26 +38,26 @@ life
 - Replication (of master)
 - Expiring keys
 - Test membership using Bloom filter before GET
-- Re-sharding
+- Re-partitioning
 
-# Sharding
-To reduce load on the file system & and decrease blocking, the dataset is split across the configured number of shards. When a key is written to or deleted, the target shard is flagged as changed.
+# Partitions
+To reduce load on the file system & and decrease blocking, the dataset is split across the configured number of partitions (parts). When a key is written to or deleted, the target partition is flagged as changed.
 
-Watchdog periodically writes all changed shards to the file system.
+Watchdog periodically writes all changed parts to the file system.
 
-## Key:Shard mapping
-Distance from key to shard is calculated as:
+## Key:Partition mapping
+Distance from key to partition is calculated as:
 ```go
-d := hash(key) ^ shardID
+d := hash(key) ^ partitionID
 ```
 The `^` represents XOR.
 
-Target shard ID is the one with smallest distance.
+Target partition ID is the one with smallest distance.
 
-## Re-sharding (to do)
-Each time the shard list is loaded, it must be compared to the configured shard count. If they do not match, a re-sharding process must occur before serving connections.
+## Re-partitioning (to do)
+Each time the partition list is loaded, it must be compared to the configured partition count. If they do not match, a re-partitioning process must occur before serving connections.
 
-1. Create new shard list in sub-directory
+1. Create new partition list in sub-directory
 2. Create new Store
-3. For each current shard, re-map all keys to their new shard
-4. Write each shard after all keys are re-mapped
+3. For each current part, re-map all keys to their new part
+4. Write each part after all keys are re-mapped
