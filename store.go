@@ -8,18 +8,25 @@ import (
 	"github.com/dr-useless/gobkv/common"
 )
 
+// Exported struct for net/rpc calls
+// Holds configuration for convenience
 type Store struct {
-	Cfg   *Config
-	Parts map[string]*Part
+	AuthSecret string
+	Parts      map[string]*Part
 }
 
+// Returns OK status code: '_'
+// Useful to cleanly detect a connection issue
+// without use of syscalls on client
 func (s *Store) Ping(args *common.Args, res *common.StatusReply) error {
 	res.Status = common.StatusOk
 	return nil
 }
 
+// Get value for specified key
+// from appropriate partition
 func (s *Store) Get(args *common.Args, res *common.ValueReply) error {
-	if args.AuthSecret != s.Cfg.AuthSecret {
+	if args.AuthSecret != s.AuthSecret {
 		return errors.New("unauthorized")
 	}
 	part := s.getClosestPart(args.Key)
@@ -29,8 +36,11 @@ func (s *Store) Get(args *common.Args, res *common.ValueReply) error {
 	return nil
 }
 
+// Set specified key
+// with given value
+// in appropriate partition
 func (s *Store) Set(args *common.Args, res *common.StatusReply) error {
-	if args.AuthSecret != s.Cfg.AuthSecret {
+	if args.AuthSecret != s.AuthSecret {
 		return errors.New("unauthorized")
 	}
 	res.Status = common.StatusOk
@@ -42,8 +52,10 @@ func (s *Store) Set(args *common.Args, res *common.StatusReply) error {
 	return nil
 }
 
+// Remove specified key
+// from appropriate partition
 func (s *Store) Del(args *common.Args, res *common.StatusReply) error {
-	if args.AuthSecret != s.Cfg.AuthSecret {
+	if args.AuthSecret != s.AuthSecret {
 		return errors.New("unauthorized")
 	}
 	res.Status = common.StatusOk
@@ -59,7 +71,7 @@ func (s *Store) Del(args *common.Args, res *common.StatusReply) error {
 // for the keys with the given prefix
 // returns list of matching keys
 func (s *Store) List(args *common.Args, res *common.KeysReply) error {
-	if args.AuthSecret != s.Cfg.AuthSecret {
+	if args.AuthSecret != s.AuthSecret {
 		return errors.New("unauthorized")
 	}
 	res.Keys = make([]string, args.Limit)

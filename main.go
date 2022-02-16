@@ -24,9 +24,9 @@ func main() {
 	}
 
 	store := Store{
-		Cfg: &cfg,
+		AuthSecret: cfg.AuthSecret,
 	}
-	store.ensureParts()
+	store.ensureParts(&cfg)
 
 	watchdog := Watchdog{
 		Store: &store,

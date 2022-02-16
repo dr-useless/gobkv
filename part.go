@@ -41,17 +41,17 @@ func (part *Part) writeToFile(partName string, cfg *Config) {
 }
 
 // ensures that part files exist
-func (s *Store) ensureParts() {
-	if !s.Cfg.Persist {
+func (s *Store) ensureParts(cfg *Config) {
+	if !cfg.Persist {
 		return
 	}
 	s.Parts = make(map[string]*Part)
-	listPath := path.Join(s.Cfg.PartDir, listFileName)
+	listPath := path.Join(cfg.PartDir, listFileName)
 	listFile, err := os.Open(listPath)
 	if err != nil {
 		log.Println("no part list found, will create...")
 		// make new list
-		for i := 0; i < s.Cfg.PartCount; i++ {
+		for i := 0; i < cfg.PartCount; i++ {
 			partId := make([]byte, hashLen)
 			rand.Read(partId)
 			partName := getPartName(partId)
@@ -63,7 +63,7 @@ func (s *Store) ensureParts() {
 		}
 		newListFile, err := os.Create(listPath)
 		if err != nil {
-			log.Fatalf("failed to create part list, check directory exists: %s", s.Cfg.PartDir)
+			log.Fatalf("failed to create part list, check directory exists: %s", cfg.PartDir)
 		}
 		partNameList := s.getPartNameList()
 		gob.NewEncoder(newListFile).Encode(partNameList)
