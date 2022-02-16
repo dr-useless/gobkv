@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/dr-useless/gobkv/common"
 )
@@ -54,20 +55,46 @@ func (s *Store) Del(args *common.Args, res *common.StatusReply) error {
 	return nil
 }
 
+// Concurrently search all parts
+// for the keys with the given prefix
+// returns list of matching keys
 func (s *Store) List(args *common.Args, res *common.KeysReply) error {
 	if args.AuthSecret != s.Cfg.AuthSecret {
 		return errors.New("unauthorized")
 	}
-	res.Keys = make([]string, 0)
+	res.Keys = make([]string, args.Limit)
+	mux := new(sync.Mutex)
+	wg := new(sync.WaitGroup)
 	for _, part := range s.Parts {
-		for k := range part.Data {
-			if args.Key == "" || strings.HasPrefix(k, args.Key) {
-				res.Keys = append(res.Keys, k)
-				if args.Limit != 0 && len(res.Keys) >= args.Limit {
-					return nil
+		wg.Add(1)
+		go func(part *Part, keys []string, wg *sync.WaitGroup, mux *sync.Mutex) {
+			defer wg.Done()
+			var partKeys []string
+			if args.Key == "" {
+				// no prefix given
+				// will return all keys
+				// so allocate enough space
+				partKeys = make([]string, len(part.Data))
+				i := 0
+				for k := range part.Data {
+					partKeys[i] = k
+					i++
+				}
+			} else {
+				partKeys = make([]string, 0)
+				for k := range part.Data {
+					if strings.HasPrefix(k, args.Key) {
+						partKeys = append(partKeys, k)
+					}
 				}
 			}
-		}
+			if len(partKeys) > 0 {
+				mux.Lock()
+				res.Keys = append(res.Keys, partKeys...)
+				mux.Unlock()
+			}
+		}(part, res.Keys, wg, mux)
 	}
+	wg.Wait()
 	return nil
 }

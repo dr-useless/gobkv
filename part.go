@@ -18,9 +18,11 @@ const hashLen = 4
 type Part struct {
 	Id        []byte
 	Mux       *sync.RWMutex
-	Data      map[string][]byte
+	Data      PartData
 	MustWrite bool
 }
+
+type PartData map[string][]byte
 
 func (part *Part) writeToFile(partName string, cfg *Config) {
 	if !part.MustWrite {
@@ -109,9 +111,9 @@ func (s *Store) getPartNameList() []string {
 }
 
 func getPartName(partId []byte) string {
-	return base64.URLEncoding.EncodeToString(partId)
+	return base64.RawURLEncoding.EncodeToString(partId)
 }
 
 func getPartId(partName string) ([]byte, error) {
-	return base64.URLEncoding.DecodeString(partName)
+	return base64.RawURLEncoding.DecodeString(partName)
 }
