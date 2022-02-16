@@ -12,6 +12,11 @@ type Store struct {
 	Parts map[string]*Part
 }
 
+func (s *Store) Ping(args *common.Args, res *common.StatusReply) error {
+	res.Status = common.StatusOk
+	return nil
+}
+
 func (s *Store) Get(args *common.Args, res *common.ValueReply) error {
 	if args.AuthSecret != s.Cfg.AuthSecret {
 		return errors.New("unauthorized")
