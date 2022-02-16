@@ -5,7 +5,8 @@ type StatusReply struct {
 }
 
 type ValueReply struct {
-	Value []byte
+	Value   []byte
+	Expires uint32
 }
 
 type KeysReply struct {
@@ -17,4 +18,5 @@ type Args struct {
 	Key        string
 	Value      []byte
 	Limit      int
+	Expires    uint32
 }
