@@ -8,14 +8,15 @@ import (
 )
 
 type Config struct {
-	Port            int
-	CertFile        string
-	KeyFile         string
-	AuthSecret      string
-	Persist         bool   // write data to file system
-	PartCount       int    // number of partitions
-	PartDir         string // directory for partition storage, default is ${pwd}/parts
-	PartWritePeriod int    // seconds
+	Port             int
+	CertFile         string
+	KeyFile          string
+	AuthSecret       string
+	Persist          bool   // write data to file system
+	PartCount        int    // number of partitions
+	PartDir          string // directory for partition storage, default is ${pwd}/parts
+	PartWritePeriod  int    // seconds
+	ExpiryScanPeriod int    // seconds
 }
 
 func (c *Config) validate() error {

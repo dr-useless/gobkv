@@ -27,10 +27,11 @@ func main() {
 		AuthSecret: cfg.AuthSecret,
 	}
 	store.ensureParts(&cfg)
+	go store.scanForExpiredKeys(&cfg)
 
 	watchdog := Watchdog{
-		Store: &store,
-		Cfg:   &cfg,
+		store: &store,
+		cfg:   &cfg,
 	}
 	watchdog.readFromPartFiles()
 	go watchdog.watch()

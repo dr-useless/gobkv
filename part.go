@@ -18,19 +18,22 @@ const hashLen = 4
 type Part struct {
 	Id        []byte
 	Mux       *sync.RWMutex
-	Data      PartData
+	Data      map[string]Key
 	MustWrite bool
 }
 
-type PartData map[string][]byte
+type Key struct {
+	Value   []byte
+	Expires uint32 // save space, expiry times will never be in the past
+}
 
-func (part *Part) writeToFile(partName string, cfg *Config) {
+func (part *Part) writeToFile(partName string, partDir string) {
 	if !part.MustWrite {
 		return
 	}
 	part.Mux.RLock()
 	defer part.Mux.RUnlock()
-	fullPath := path.Join(cfg.PartDir, partName+".gob")
+	fullPath := path.Join(partDir, partName+".gob")
 	file, err := os.Create(fullPath)
 	if err != nil {
 		log.Fatalf("failed to create part file: %s\r\n", err)
@@ -58,7 +61,7 @@ func (s *Store) ensureParts(cfg *Config) {
 			s.Parts[partName] = &Part{
 				Id:   partId,
 				Mux:  new(sync.RWMutex),
-				Data: make(map[string][]byte),
+				Data: make(map[string]Key),
 			}
 		}
 		newListFile, err := os.Create(listPath)
@@ -79,7 +82,7 @@ func (s *Store) ensureParts(cfg *Config) {
 			s.Parts[name] = &Part{
 				Id:   id,
 				Mux:  new(sync.RWMutex),
-				Data: make(map[string][]byte),
+				Data: make(map[string]Key),
 			}
 		}
 		log.Printf("initialised %v parts from list\r\n", len(s.Parts))

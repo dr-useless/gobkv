@@ -11,17 +11,17 @@ import (
 )
 
 type Watchdog struct {
-	Store *Store
-	Cfg   *Config
+	store *Store
+	cfg   *Config
 }
 
 // While watch() only takes care of writing to partitions,
 // will only watch if persistence is enabled
 func (w *Watchdog) watch() {
-	if !w.Cfg.Persist {
+	if !w.cfg.Persist {
 		return
 	}
-	period := w.Cfg.PartWritePeriod
+	period := w.cfg.PartWritePeriod
 	if period == 0 {
 		period = 10
 	}
@@ -49,23 +49,23 @@ func (w *Watchdog) waitForSigInt() {
 }
 
 func (w *Watchdog) writeAllParts() {
-	for name, part := range w.Store.Parts {
-		part.writeToFile(name, w.Cfg)
+	for name, part := range w.store.Parts {
+		part.writeToFile(name, w.cfg.PartDir)
 	}
 }
 
 func (w *Watchdog) readFromPartFiles() {
-	if !w.Cfg.Persist {
+	if !w.cfg.Persist {
 		return
 	}
 	wg := new(sync.WaitGroup)
-	for name, part := range w.Store.Parts {
+	for name, part := range w.store.Parts {
 		wg.Add(1)
 		go func(name string, part *Part, wg *sync.WaitGroup) {
 			defer wg.Done()
 			part.Mux.Lock()
 			defer part.Mux.Unlock()
-			fullPath := path.Join(w.Cfg.PartDir, name+".gob")
+			fullPath := path.Join(w.cfg.PartDir, name+".gob")
 			file, err := os.Open(fullPath)
 			if err != nil {
 				log.Printf("failed to open partition %s\r\n", name)

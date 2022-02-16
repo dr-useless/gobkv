@@ -35,10 +35,9 @@ life
 ```
 
 # To do
-- Replication (of master)
-- Expiring keys
-- Test membership using Bloom filter before GET
+- Replication
 - Re-partitioning
+- Test membership using Bloom filter before GET
 
 # Partitions
 To reduce load on the file system & and decrease blocking, the dataset is split across the configured number of partitions (parts). When a key is written to or deleted, the target partition is flagged as changed.
@@ -61,3 +60,10 @@ Each time the partition list is loaded, it must be compared to the configured pa
 2. Create new Store
 3. For each current part, re-map all keys to their new part
 4. Write each part after all keys are re-mapped
+
+# Key expiry
+The expires time is evaluated periodically in a separate goroutine. The period between scans can be configured using `ExpiryScanPeriod`, giving a number of seconds.
+
+The scan is done in a (mostly) non-blocking way. The partition's mutex is held only for deleting expired keys. Currently, this is done on a per-key basis for simplicity & low memory usage.
+
+The expiry time is given as `uint32` Unix time (seconds). Expiry times will never be in the past, so we can save a lot of space without compromising range.

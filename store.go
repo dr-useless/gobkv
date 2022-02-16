@@ -31,8 +31,9 @@ func (s *Store) Get(args *common.Args, res *common.ValueReply) error {
 	}
 	part := s.getClosestPart(args.Key)
 	part.Mux.RLock()
-	defer part.Mux.RUnlock()
-	res.Value = part.Data[args.Key]
+	res.Value = part.Data[args.Key].Value
+	res.Expires = part.Data[args.Key].Expires
+	part.Mux.RUnlock()
 	return nil
 }
 
@@ -46,9 +47,12 @@ func (s *Store) Set(args *common.Args, res *common.StatusReply) error {
 	res.Status = common.StatusOk
 	part := s.getClosestPart(args.Key)
 	part.Mux.Lock()
-	defer part.Mux.Unlock()
-	part.Data[args.Key] = args.Value
+	part.Data[args.Key] = Key{
+		Value:   args.Value,
+		Expires: args.Expires,
+	}
 	part.MustWrite = true
+	part.Mux.Unlock()
 	return nil
 }
 
@@ -61,9 +65,9 @@ func (s *Store) Del(args *common.Args, res *common.StatusReply) error {
 	res.Status = common.StatusOk
 	part := s.getClosestPart(args.Key)
 	part.Mux.Lock()
-	defer part.Mux.Unlock()
 	delete(part.Data, args.Key)
 	part.MustWrite = true
+	part.Mux.Unlock()
 	return nil
 }
 
