@@ -91,8 +91,7 @@ The scan is done in a (mostly) non-blocking way. The partition's write lock is h
 | 0x50 | List    |
 
 ## Status codes
-| Byte | Meaning |
-|------|---------|
-| 0x00 |         |
-| 0x10 | Error   |
-| 0x20 | OK      |
+| Byte | Rune | Meaning |
+|------|------|---------|
+| 0x21 | !    | Error   |
+| 0x5F | _    | OK      |
