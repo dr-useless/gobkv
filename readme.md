@@ -81,15 +81,18 @@ The scan is done in a (mostly) non-blocking way. The partition's write lock is h
 ```
 
 ## Op codes
-|   |   |
-|---|---|
-|   |   |
-|   |   |
-|   |   |
+| Byte | Meaning |
+|------|---------|
+| 0x00 |         |
+| 0x10 | Ping    |
+| 0x20 | Get     |
+| 0x30 | Set     |
+| 0x40 | Del     |
+| 0x50 | List    |
 
 ## Status codes
-|   |   |
-|---|---|
-|   |   |
-|   |   |
-|   |   |
+| Byte | Meaning |
+|------|---------|
+| 0x00 |         |
+| 0x10 | Error   |
+| 0x20 | OK      |
