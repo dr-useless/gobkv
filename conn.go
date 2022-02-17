@@ -28,6 +28,7 @@ func serveConn(conn net.Conn, store *Store) {
 
 func handlePing(conn net.Conn) {
 	msg := protocol.Message{
+		Op:     protocol.OpPong,
 		Status: protocol.StatusOk,
 	}
 	msg.Write(conn)
