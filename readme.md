@@ -72,10 +72,11 @@ The scan is done in a (mostly) non-blocking way. The partition's write lock is h
 | 0             | 1             | 2             | 3             |
 |0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|
 +---------------+---------------+---------------+---------------+
-| < OP        > | < STATUS    > | < KEY LEN                   > |
-| < KEY EXPIRES (UNIX INT64)                                    |
+| < OP        > | < STATUS    > | < KEY LEN UINT16            > |
+| < KEY EXPIRES UNIX INT64                                      |
 |                                                             > |
-| < VALUE LEN (UINT32)                                        > |
+| < VALUE LEN UINT64                                            |
+|                                                             > |
   KEY ...                                                       
   VALUE ...                                                     
 ```

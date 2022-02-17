@@ -1,4 +1,4 @@
-package common
+package protocol
 
 type StatusReply struct {
 	Status byte
