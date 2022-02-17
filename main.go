@@ -49,6 +49,6 @@ func main() {
 			log.Println("failed to accept conn: ", err)
 			continue
 		}
-		go rpc.ServeConn(conn)
+		go serveConn(conn)
 	}
 }
