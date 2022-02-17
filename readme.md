@@ -64,6 +64,18 @@ Each time the partition list is loaded, it must be compared to the configured pa
 # Key expiry
 The expires time is evaluated periodically in a separate goroutine. The period between scans can be configured using `ExpiryScanPeriod`, giving a number of seconds.
 
-The scan is done in a (mostly) non-blocking way. The partition's mutex is held only for deleting expired keys. Currently, this is done on a per-key basis for simplicity & low memory usage.
+The scan is done in a (mostly) non-blocking way. The partition's write lock is held only while deleting each expired key. Currently, this is done on a per-key basis for simplicity.
 
-The expiry time is given as `uint32` Unix time (seconds). Expiry times will never be in the past, so we can save a lot of space without compromising range.
+# Protocol
+## Message structure
+```
+| 0             | 1             | 2             | 3             |
+|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|
++---------------+---------------+---------------+---------------+
+| < OPERATION > | < STATUS    > | < KEY LEN                   > |
+| < KEY EXPIRES (UNIX INT64)                                    |
+|                                                             > |
+| < VALUE LEN (UINT32)                                        > |
+  KEY ...                                                       
+  VALUE ...                                                     
+```
