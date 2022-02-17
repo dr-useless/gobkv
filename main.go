@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"log"
-	"net/rpc"
 )
 
 var cpuProfile = flag.String("cpuprof", "", "write cpu profile to `file`")
@@ -36,8 +35,6 @@ func main() {
 	watchdog.readFromPartFiles()
 	go watchdog.watch()
 
-	rpc.Register(&store)
-
 	listener, err := getListener(&cfg)
 	if err != nil {
 		log.Fatal("failed to get listener: ", err)
@@ -49,6 +46,6 @@ func main() {
 			log.Println("failed to accept conn: ", err)
 			continue
 		}
-		go serveConn(conn)
+		go serveConn(conn, &store)
 	}
 }

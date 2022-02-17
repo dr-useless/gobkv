@@ -1,11 +1,8 @@
 package main
 
 import (
-	"errors"
 	"strings"
 	"sync"
-
-	"github.com/dr-useless/gobkv/common"
 )
 
 // Exported struct for net/rpc calls
@@ -15,70 +12,40 @@ type Store struct {
 	Parts      map[string]*Part
 }
 
-// Returns OK status code: '_'
-// Useful to cleanly detect a connection issue
-// without use of syscalls on client
-func (s *Store) Ping(args *common.Args, res *common.StatusReply) error {
-	res.Status = common.StatusOk
-	return nil
-}
-
-// Get value for specified key
+// Get Slot for specified key
 // from appropriate partition
-func (s *Store) Get(args *common.Args, res *common.ValueReply) error {
-	if args.AuthSecret != s.AuthSecret {
-		return errors.New("unauthorized")
-	}
-	part := s.getClosestPart(args.Key)
+func (s *Store) Get(key string) Slot {
+	part := s.getClosestPart(key)
 	part.Mux.RLock()
-	res.Value = part.Data[args.Key].Value
-	res.Expires = part.Data[args.Key].Expires
-	part.Mux.RUnlock()
-	return nil
+	defer part.Mux.RUnlock()
+	return part.Data[key]
 }
 
-// Set specified key
-// with given value
+// Set specified Slot
 // in appropriate partition
-func (s *Store) Set(args *common.Args, res *common.StatusReply) error {
-	if args.AuthSecret != s.AuthSecret {
-		return errors.New("unauthorized")
-	}
-	res.Status = common.StatusOk
-	part := s.getClosestPart(args.Key)
+func (s *Store) Set(key string, slot *Slot) {
+	part := s.getClosestPart(key)
 	part.Mux.Lock()
-	part.Data[args.Key] = Key{
-		Value:   args.Value,
-		Expires: args.Expires,
-	}
+	part.Data[key] = *slot
 	part.MustWrite = true
 	part.Mux.Unlock()
-	return nil
 }
 
-// Remove specified key
+// Remove Slot with specified key
 // from appropriate partition
-func (s *Store) Del(args *common.Args, res *common.StatusReply) error {
-	if args.AuthSecret != s.AuthSecret {
-		return errors.New("unauthorized")
-	}
-	res.Status = common.StatusOk
-	part := s.getClosestPart(args.Key)
+func (s *Store) Del(key string) {
+	part := s.getClosestPart(key)
 	part.Mux.Lock()
-	delete(part.Data, args.Key)
+	delete(part.Data, key)
 	part.MustWrite = true
 	part.Mux.Unlock()
-	return nil
 }
 
 // Concurrently search all parts
 // for the keys with the given prefix
 // returns list of matching keys
-func (s *Store) List(args *common.Args, res *common.KeysReply) error {
-	if args.AuthSecret != s.AuthSecret {
-		return errors.New("unauthorized")
-	}
-	res.Keys = make([]string, args.Limit)
+func (s *Store) List(prefix string) []string {
+	keys := make([]string, 0)
 	mux := new(sync.Mutex)
 	wg := new(sync.WaitGroup)
 	for _, part := range s.Parts {
@@ -86,9 +53,8 @@ func (s *Store) List(args *common.Args, res *common.KeysReply) error {
 		go func(part *Part, keys []string, wg *sync.WaitGroup, mux *sync.Mutex) {
 			defer wg.Done()
 			var partKeys []string
-			if args.Key == "" {
-				// no prefix given
-				// will return all keys
+			if prefix == "" {
+				// no prefix given, will return all keys
 				// so allocate enough space
 				partKeys = make([]string, len(part.Data))
 				i := 0
@@ -99,18 +65,18 @@ func (s *Store) List(args *common.Args, res *common.KeysReply) error {
 			} else {
 				partKeys = make([]string, 0)
 				for k := range part.Data {
-					if strings.HasPrefix(k, args.Key) {
+					if strings.HasPrefix(k, prefix) {
 						partKeys = append(partKeys, k)
 					}
 				}
 			}
 			if len(partKeys) > 0 {
 				mux.Lock()
-				res.Keys = append(res.Keys, partKeys...)
+				keys = append(keys, partKeys...)
 				mux.Unlock()
 			}
-		}(part, res.Keys, wg, mux)
+		}(part, keys, wg, mux)
 	}
 	wg.Wait()
-	return nil
+	return keys
 }

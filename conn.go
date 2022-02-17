@@ -9,21 +9,21 @@ import (
 
 // Listens for requests
 // & sends responses
-func serveConn(conn net.Conn) {
-	for {
-		req := protocol.Message{}
-		req.Read(conn)
+func serveConn(conn net.Conn, store *Store) {
+	//for {
+	req := protocol.Message{}
+	req.Read(conn)
 
-		log.Println("msg", req)
+	log.Printf("OP: %s\r\n", protocol.MapOp()[req.Op])
 
-		switch req.Op {
-		case protocol.OpPing:
-			handlePing(conn)
-		default:
-			log.Println("unrecognized op")
-			respondWithError(conn)
-		}
+	switch req.Op {
+	case protocol.OpPing:
+		handlePing(conn)
+	default:
+		log.Println("unrecognized op")
+		respondWithError(conn)
 	}
+	//}
 }
 
 func handlePing(conn net.Conn) {

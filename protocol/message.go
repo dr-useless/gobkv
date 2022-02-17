@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"encoding/binary"
 	"io"
-	"time"
+	"log"
 )
 
 /*
@@ -12,7 +12,7 @@ import (
 |0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|
 +---------------+---------------+---------------+---------------+
 | < OP        > | < STATUS    > | < KEY LEN UINT16            > |
-| < KEY EXPIRES UNIX INT64                                      |
+| < KEY EXPIRES UNIX UINT64                                     |
 |                                                             > |
 | < VALUE LEN UINT64                                            |
 |                                                             > |
@@ -20,14 +20,10 @@ import (
   VALUE ...
 */
 
-type KeyLen uint16
-type KeyExpires int64
-type ValueLen uint64
-
 type Message struct {
 	Op      byte
 	Status  byte
-	Expires time.Time
+	Expires uint64
 	Key     string
 	Value   []byte
 }
@@ -41,11 +37,7 @@ func (m *Message) Write(w io.Writer) {
 
 	buf.Write([]byte(m.Key))
 	buf.Write(m.Value)
-
-	// for now, terminate with \r\n.
-	//buf.WriteByte('\r')
-	//buf.WriteByte('\n')
-	//buf.WriteByte('.')
+	buf.Flush()
 }
 
 // Read & deserialize from a given io.Reader
@@ -56,14 +48,14 @@ func (m *Message) Read(r io.Reader) {
 	header := make([]byte, 20)
 	buf.Read(header) // maybe check n
 
-	msg := Message{}
-	keyLen, valLen := msg.deserializeHeader(header)
+	keyLen, valLen := m.deserializeHeader(header)
 
 	keyBytes := make([]byte, keyLen)
 	buf.Read(keyBytes)
+	m.Key = string(keyBytes)
 
-	valBytes := make([]byte, valLen)
-	buf.Read(valBytes)
+	m.Value = make([]byte, valLen)
+	buf.Read(m.Value)
 }
 
 func (m *Message) serializeHeader() []byte {
@@ -73,28 +65,62 @@ func (m *Message) serializeHeader() []byte {
 	// 20 is total length of fixed fields
 	b := make([]byte, 20)
 
+	// OP
 	b[0] = m.Op
 
+	// STATUS
 	b[1] = m.Status
 
-	binary.BigEndian.PutUint16(b[2:3], uint16(keyLen))
+	// KEY LEN [2:4]
+	if keyLen > 0 {
+		bKeyLen := make([]byte, 2)
+		binary.BigEndian.PutUint16(bKeyLen, uint16(keyLen))
+		b[2] = bKeyLen[0]
+		b[3] = bKeyLen[1]
+	}
 
-	binary.BigEndian.PutUint64(b[4:11], uint64(m.Expires.Unix()))
+	// reuse these
+	var offset int
+	var i int
 
-	binary.BigEndian.PutUint64(b[12:20], uint64(valLen))
+	// EXPIRES [4:12]
+	if m.Expires > 0 {
+		offset = 4
+		bExp := make([]byte, 8)
+		binary.BigEndian.PutUint64(bExp, m.Expires)
+		for i = 0; i < 8; i++ {
+			b[offset] = bExp[i]
+			offset++
+		}
+	}
+
+	// VAL LEN [12:20]
+	if valLen > 0 {
+		offset = 12
+		bValLen := make([]byte, 8)
+		binary.BigEndian.PutUint64(bValLen, uint64(valLen))
+		for i = 0; i < 8; i++ {
+			b[offset] = bValLen[i]
+			offset++
+		}
+	}
 
 	return b
 }
 
 func (m *Message) deserializeHeader(b []byte) (uint16, uint64) {
+	if len(b) != 20 {
+		log.Println("invalid header")
+		return 0, 0
+	}
+
 	m.Op = b[0]
 
 	m.Status = b[1]
 
-	keyLen := binary.BigEndian.Uint16(b[2:3])
+	keyLen := binary.BigEndian.Uint16(b[2:4])
 
-	exp := binary.BigEndian.Uint64(b[4:11])
-	m.Expires = time.Unix(int64(exp), 0)
+	m.Expires = binary.BigEndian.Uint64(b[4:12])
 
 	valLen := binary.BigEndian.Uint64(b[12:20])
 

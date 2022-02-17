@@ -18,11 +18,11 @@ const hashLen = 4
 type Part struct {
 	Id        []byte
 	Mux       *sync.RWMutex
-	Data      map[string]Key
+	Data      map[string]Slot
 	MustWrite bool
 }
 
-type Key struct {
+type Slot struct {
 	Value   []byte
 	Expires int64
 }
@@ -61,7 +61,7 @@ func (s *Store) ensureParts(cfg *Config) {
 			s.Parts[partName] = &Part{
 				Id:   partId,
 				Mux:  new(sync.RWMutex),
-				Data: make(map[string]Key),
+				Data: make(map[string]Slot),
 			}
 		}
 		newListFile, err := os.Create(listPath)
@@ -82,7 +82,7 @@ func (s *Store) ensureParts(cfg *Config) {
 			s.Parts[name] = &Part{
 				Id:   id,
 				Mux:  new(sync.RWMutex),
-				Data: make(map[string]Key),
+				Data: make(map[string]Slot),
 			}
 		}
 		log.Printf("initialised %v parts from list\r\n", len(s.Parts))
