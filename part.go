@@ -24,7 +24,7 @@ type Part struct {
 
 type Key struct {
 	Value   []byte
-	Expires uint32 // save space, expiry times will never be in the past
+	Expires int64
 }
 
 func (part *Part) writeToFile(partName string, partDir string) {
