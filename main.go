@@ -22,9 +22,7 @@ func main() {
 		log.Fatal("failed to load config: ", err)
 	}
 
-	store := Store{
-		AuthSecret: cfg.AuthSecret,
-	}
+	store := Store{}
 	store.ensureParts(&cfg)
 	go store.scanForExpiredKeys(&cfg)
 
@@ -46,6 +44,6 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		go serveConn(conn, &store)
+		go serveConn(conn, &store, cfg.AuthSecret)
 	}
 }

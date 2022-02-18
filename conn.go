@@ -14,9 +14,9 @@ const BACKOFF_LIMIT = 100 // ms
 
 // Listens for requests
 // & sends response
-func serveConn(conn net.Conn, store *Store) {
+func serveConn(conn net.Conn, store *Store, authSecret string) {
 	backoff := BACKOFF // ms
-	ops := 0
+	authed := authSecret == ""
 	var msg protocol.Message
 	var err error
 loop:
@@ -24,21 +24,32 @@ loop:
 		msg = protocol.Message{}
 		err = msg.Read(conn)
 		if err != nil {
-			log.Println(err)
 			if backoff > BACKOFF_LIMIT {
-				respondWithError(conn)
-				log.Println("conn timed out", err)
+				respondWithStatus(conn, protocol.StatusError)
+				log.Println("conn timed out:", err)
 				break
 			}
 			time.Sleep(time.Duration(backoff) * time.Millisecond)
 			backoff *= 2
 			continue
 		}
-		ops++
 
 		switch msg.Op {
 		case protocol.OpPing:
 			handlePing(conn)
+			continue
+		case protocol.OpAuth:
+			authed = handleAuth(conn, &msg, authSecret)
+			continue
+		default:
+			if !authed {
+				respondWithStatus(conn, protocol.StatusUnauthorized)
+				break loop
+			}
+		}
+
+		// requires auth
+		switch msg.Op {
 		case protocol.OpGet:
 			handleGet(conn, &msg, store)
 		case protocol.OpSet:
@@ -53,14 +64,9 @@ loop:
 			handleList(conn, &msg, store)
 		case protocol.OpClose:
 			break loop
-		default:
-			log.Println("unrecognized op", msg.Op)
-			respondWithError(conn)
-			break loop
 		}
 	}
 
-	log.Println("ops: ", ops)
 	conn.Close()
 }
 
@@ -72,14 +78,32 @@ func handlePing(conn net.Conn) {
 	resp.Write(conn)
 }
 
+func handleAuth(conn net.Conn, msg *protocol.Message, secret string) bool {
+	authed := msg.Key == secret
+	resp := protocol.Message{
+		Op: protocol.OpAuth,
+	}
+	if authed {
+		resp.Status = protocol.StatusOk
+	} else {
+		resp.Status = protocol.StatusUnauthorized
+	}
+	resp.Write(conn)
+	return authed
+}
+
 func handleGet(conn net.Conn, msg *protocol.Message, store *Store) {
 	slot := store.Get(msg.Key)
 	resp := protocol.Message{
-		Op:      protocol.OpGet,
-		Status:  protocol.StatusOk,
-		Expires: slot.Expires,
-		Key:     msg.Key,
-		Value:   slot.Value,
+		Op:  protocol.OpGet,
+		Key: msg.Key,
+	}
+	if slot != nil {
+		resp.Status = protocol.StatusOk
+		resp.Expires = slot.Expires
+		resp.Value = slot.Value
+	} else {
+		resp.Status = protocol.StatusNotFound
 	}
 	resp.Write(conn)
 }
@@ -127,9 +151,9 @@ func handleList(conn net.Conn, msg *protocol.Message, store *Store) {
 	resp.Write(conn)
 }
 
-func respondWithError(conn net.Conn) {
+func respondWithStatus(conn net.Conn, status byte) {
 	resp := protocol.Message{
-		Status: protocol.StatusError,
+		Status: status,
 	}
 	resp.Write(conn)
 }

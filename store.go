@@ -8,8 +8,7 @@ import (
 // Exported struct for net/rpc calls
 // Holds configuration for convenience
 type Store struct {
-	AuthSecret string
-	Parts      map[string]*Part
+	Parts map[string]*Part
 }
 
 // Get Slot for specified key
