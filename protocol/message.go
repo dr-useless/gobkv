@@ -3,6 +3,7 @@ package protocol
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"io"
 	"log"
 )
@@ -28,34 +29,71 @@ type Message struct {
 	Value   []byte
 }
 
+const HEADER_LEN = 20 // bytes
+
 // Serialize & write to a given io.Writer
-func (m *Message) Write(w io.Writer) {
+func (m *Message) Write(w io.Writer) error {
 	buf := bufio.NewWriter(w)
-
 	header := m.serializeHeader()
-	buf.Write(header)
-
-	buf.Write([]byte(m.Key))
-	buf.Write(m.Value)
+	_, err := buf.Write(header)
+	if err != nil {
+		return err
+	}
+	_, err = buf.Write([]byte(m.Key))
+	if err != nil {
+		return err
+	}
+	_, err = buf.Write(m.Value)
 	buf.Flush()
+	return err
 }
 
 // Read & deserialize from a given io.Reader
-func (m *Message) Read(r io.Reader) {
+func (m *Message) Read(r io.Reader) error {
 	buf := bufio.NewReader(r)
+	_, err := buf.Peek(HEADER_LEN)
+	if err != nil {
+		return err
+	}
 
-	// read first 20 bytes & deserialize header
-	header := make([]byte, 20)
-	buf.Read(header) // maybe check n
+	// read first HEADER_LEN bytes & deserialize
+	header := make([]byte, HEADER_LEN)
+	n, err := buf.Read(header)
+	if err != nil {
+		return err
+	}
+	if n != 20 {
+		return errors.New("invalid header")
+	}
 
 	keyLen, valLen := m.deserializeHeader(header)
 
+	if keyLen < 1 {
+		return nil
+	}
+
 	keyBytes := make([]byte, keyLen)
-	buf.Read(keyBytes)
+	n, err = buf.Read(keyBytes)
+	if err != nil {
+		return err
+	}
+	if n != int(keyLen) {
+		return errors.New("read key length not as defined in header")
+	}
 	m.Key = string(keyBytes)
 
-	m.Value = make([]byte, valLen)
-	buf.Read(m.Value)
+	if valLen > 0 {
+		m.Value = make([]byte, valLen)
+		n, err = buf.Read(m.Value)
+		if err != nil {
+			return err
+		}
+		if n != valLen {
+			return errors.New("read value length not as defined in header")
+		}
+	}
+
+	return nil
 }
 
 func (m *Message) serializeHeader() []byte {
@@ -108,7 +146,7 @@ func (m *Message) serializeHeader() []byte {
 	return b
 }
 
-func (m *Message) deserializeHeader(b []byte) (uint16, uint64) {
+func (m *Message) deserializeHeader(b []byte) (int, int) {
 	if len(b) != 20 {
 		log.Println("invalid header")
 		return 0, 0
@@ -118,11 +156,11 @@ func (m *Message) deserializeHeader(b []byte) (uint16, uint64) {
 
 	m.Status = b[1]
 
-	keyLen := binary.BigEndian.Uint16(b[2:4])
+	keyLen := int(binary.BigEndian.Uint16(b[2:4]))
 
 	m.Expires = binary.BigEndian.Uint64(b[4:12])
 
-	valLen := binary.BigEndian.Uint64(b[12:20])
+	valLen := int(binary.BigEndian.Uint64(b[12:20]))
 
 	return keyLen, valLen
 }

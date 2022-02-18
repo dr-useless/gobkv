@@ -14,7 +14,7 @@ type Store struct {
 
 // Get Slot for specified key
 // from appropriate partition
-func (s *Store) Get(key string) Slot {
+func (s *Store) Get(key string) *Slot {
 	part := s.getClosestPart(key)
 	part.Mux.RLock()
 	defer part.Mux.RUnlock()
@@ -26,7 +26,7 @@ func (s *Store) Get(key string) Slot {
 func (s *Store) Set(key string, slot *Slot) {
 	part := s.getClosestPart(key)
 	part.Mux.Lock()
-	part.Data[key] = *slot
+	part.Data[key] = slot
 	part.MustWrite = true
 	part.Mux.Unlock()
 }

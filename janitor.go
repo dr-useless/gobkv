@@ -25,7 +25,7 @@ func (s *Store) scanForExpiredKeys(cfg *Config) {
 					if v.Expires == 0 {
 						continue
 					}
-					expires := time.Unix(v.Expires, 0)
+					expires := time.Unix(int64(v.Expires), 0)
 					if time.Now().After(expires) {
 						part.Mux.RUnlock()
 						part.Mux.Lock()
