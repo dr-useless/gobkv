@@ -37,13 +37,13 @@ func main() {
 
 	listener, err := getListener(&cfg)
 	if err != nil {
-		log.Fatal("failed to get listener: ", err)
+		log.Fatal(err)
 	}
 	defer listener.Close()
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Println("failed to accept conn: ", err)
+			log.Println(err)
 			continue
 		}
 		go serveConn(conn, &store)

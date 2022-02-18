@@ -50,7 +50,7 @@ func (s *Store) List(prefix string) []string {
 	wg := new(sync.WaitGroup)
 	for _, part := range s.Parts {
 		wg.Add(1)
-		go func(part *Part, keys []string, wg *sync.WaitGroup, mux *sync.Mutex) {
+		go func(part *Part, keys *[]string, wg *sync.WaitGroup, mux *sync.Mutex) {
 			defer wg.Done()
 			var partKeys []string
 			if prefix == "" {
@@ -72,10 +72,10 @@ func (s *Store) List(prefix string) []string {
 			}
 			if len(partKeys) > 0 {
 				mux.Lock()
-				keys = append(keys, partKeys...)
+				*keys = append(*keys, partKeys...)
 				mux.Unlock()
 			}
-		}(part, keys, wg, mux)
+		}(part, &keys, wg, mux)
 	}
 	wg.Wait()
 	return keys

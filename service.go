@@ -8,7 +8,7 @@ import (
 )
 
 func getListener(cfg *Config) (net.Listener, error) {
-	log.Printf("listening on %s\r\n", cfg.Address)
+	log.Printf("listening on %s over %s\r\n", cfg.Address, cfg.Network)
 	if cfg.CertFile == "" {
 		// no cert, return plain listener
 		return net.Listen(cfg.Network, cfg.Address)

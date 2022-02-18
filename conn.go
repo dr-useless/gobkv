@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/dr-useless/gobkv/protocol"
@@ -44,8 +45,13 @@ loop:
 			handleSet(conn, &msg, store)
 		case protocol.OpSetAck:
 			handleSet(conn, &msg, store)
+		case protocol.OpDel:
+			handleDel(conn, &msg, store)
+		case protocol.OpDelAck:
+			handleDel(conn, &msg, store)
+		case protocol.OpList:
+			handleList(conn, &msg, store)
 		case protocol.OpClose:
-			log.Println("closing, ops:", ops)
 			break loop
 		default:
 			log.Println("unrecognized op", msg.Op)
@@ -62,6 +68,18 @@ func handlePing(conn net.Conn) {
 	resp := protocol.Message{
 		Op:     protocol.OpPong,
 		Status: protocol.StatusOk,
+	}
+	resp.Write(conn)
+}
+
+func handleGet(conn net.Conn, msg *protocol.Message, store *Store) {
+	slot := store.Get(msg.Key)
+	resp := protocol.Message{
+		Op:      protocol.OpGet,
+		Status:  protocol.StatusOk,
+		Expires: slot.Expires,
+		Key:     msg.Key,
+		Value:   slot.Value,
 	}
 	resp.Write(conn)
 }
@@ -84,14 +102,27 @@ func handleSet(conn net.Conn, msg *protocol.Message, store *Store) {
 	}
 }
 
-func handleGet(conn net.Conn, msg *protocol.Message, store *Store) {
-	slot := store.Get(msg.Key)
+func handleDel(conn net.Conn, msg *protocol.Message, store *Store) {
+	store.Del(msg.Key)
+	if msg.Op == protocol.OpDelAck {
+		resp := protocol.Message{
+			Op:     msg.Op,
+			Status: protocol.StatusOk,
+			Key:    msg.Key,
+		}
+		resp.Write(conn)
+	}
+}
+
+// TODO: add ability to stream unknown length,
+// then stream keys as they are found (buffered)
+func handleList(conn net.Conn, msg *protocol.Message, store *Store) {
+	keys := store.List(msg.Key)
+	keyStr := strings.Join(keys, " ")
 	resp := protocol.Message{
-		Op:      protocol.OpGet,
-		Status:  protocol.StatusOk,
-		Expires: slot.Expires,
-		Key:     msg.Key,
-		Value:   slot.Value,
+		Op:     protocol.OpList,
+		Status: protocol.StatusOk,
+		Value:  []byte(keyStr),
 	}
 	resp.Write(conn)
 }
