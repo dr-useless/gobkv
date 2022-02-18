@@ -16,21 +16,23 @@ const BACKOFF_LIMIT = 100 // ms
 func serveConn(conn net.Conn, store *Store) {
 	backoff := BACKOFF // ms
 	ops := 0
+	var msg protocol.Message
+	var err error
+loop:
 	for {
-		msg := protocol.Message{}
-		err := msg.Read(conn)
+		msg = protocol.Message{}
+		err = msg.Read(conn)
 		if err != nil {
 			log.Println(err)
 			if backoff > BACKOFF_LIMIT {
 				respondWithError(conn)
-				log.Println("conn timed out, ops:", ops, err)
+				log.Println("conn timed out", err)
 				break
 			}
 			time.Sleep(time.Duration(backoff) * time.Millisecond)
 			backoff *= 2
 			continue
 		}
-		backoff = BACKOFF
 		ops++
 
 		switch msg.Op {
@@ -40,13 +42,19 @@ func serveConn(conn net.Conn, store *Store) {
 			handleGet(conn, &msg, store)
 		case protocol.OpSet:
 			handleSet(conn, &msg, store)
+		case protocol.OpSetAck:
+			handleSet(conn, &msg, store)
+		case protocol.OpClose:
+			log.Println("closing, ops:", ops)
+			break loop
 		default:
 			log.Println("unrecognized op", msg.Op)
 			respondWithError(conn)
-			conn.Close()
-			return
+			break loop
 		}
 	}
+
+	log.Println("ops: ", ops)
 	conn.Close()
 }
 
@@ -64,13 +72,15 @@ func handleSet(conn net.Conn, msg *protocol.Message, store *Store) {
 		Expires: msg.Expires,
 	}
 	store.Set(msg.Key, &slot)
-	resp := protocol.Message{
-		Op:     protocol.OpGet,
-		Status: protocol.StatusOk,
-	}
-	err := resp.Write(conn)
-	if err != nil {
-		log.Println(err)
+	if msg.Op == protocol.OpSetAck {
+		resp := protocol.Message{
+			Op:     msg.Op,
+			Status: protocol.StatusOk,
+		}
+		err := resp.Write(conn)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 }
 
