@@ -19,7 +19,7 @@ func main() {
 
 	cfg, err := loadConfig()
 	if err != nil {
-		log.Fatal("failed to load config ", err)
+		log.Fatal("failed to load config: ", err)
 	}
 
 	store := Store{

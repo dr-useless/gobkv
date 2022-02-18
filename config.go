@@ -3,12 +3,12 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"os"
 )
 
 type Config struct {
-	Port             int
+	Network          string // tcp, unix etc...
+	Address          string // 0.0.0.0:8100
 	CertFile         string
 	KeyFile          string
 	AuthSecret       string
@@ -20,22 +20,22 @@ type Config struct {
 }
 
 func (c *Config) validate() error {
+	if c.Network == "" || c.Address == "" {
+		return errors.New("network & address must not be blank")
+	}
 	if c.Persist {
 		if c.PartCount < 1 {
-			return errors.New("PartCount must be greater than 0")
+			return errors.New("part count must be greater than 0")
 		}
 	}
 	return nil
 }
 
 func loadConfig() (Config, error) {
-	cfg := Config{
-		Port: 8100,
-	}
+	cfg := Config{}
 
 	if *configFile == "" {
-		log.Println("no config file defined, running with defaults")
-		return cfg, nil
+		return cfg, errors.New("no config file provided")
 	} else {
 		err := read(*configFile, &cfg)
 		if err != nil {

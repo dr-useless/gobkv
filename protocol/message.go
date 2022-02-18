@@ -30,14 +30,18 @@ type Message struct {
 const HEADER_LEN = 20 // bytes
 
 // Serialize & write to a given io.Writer
-// TODO: use buffer
-// TODO: handle errors
 func (m *Message) Write(w io.Writer) error {
 	header := m.serializeHeader()
-	w.Write(header)
-	w.Write([]byte(m.Key))
-	w.Write(m.Value)
-	return nil
+	_, err := w.Write(header)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write([]byte(m.Key))
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(m.Value)
+	return err
 }
 
 // Read & deserialize from a given io.Reader
