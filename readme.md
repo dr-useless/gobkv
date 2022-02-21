@@ -22,8 +22,8 @@ Minimalisic, highly performant key-value storage, written in Go.
 ```
 
 ## Play
-1. Clone CLI tool, gobler
-  `git clone https://github.com/dr-useless/gobler`
+1. Install CLI tool, gobler
+  `go install github.com/dr-useless/gobler`
 2. Bind to your gobkv instance
   `./gobler bind 127.0.0.1:8100 --auth [your_secret]`
 3. Call RPCs
