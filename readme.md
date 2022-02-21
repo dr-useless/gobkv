@@ -3,9 +3,9 @@
 Minimalisic, highly performant key-value storage, written in Go.
 
 # Usage
-1. Clone `git clone https://github.com/dr-useless/gobkv`
+1. Install `go install github.com/dr-useless/gobkv`
 2. (Optional) Define config.json (see configuration)
-3. Start `go build; ./gobkv -c config.json`
+3. Start `./gobkv -c config.json`
 
 ## Config
 ```json
