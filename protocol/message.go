@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -16,29 +15,33 @@ import (
   GOB DATA ...
 */
 
-type Message struct {
+type Msg struct {
 	Op     byte
 	Status byte
-	Body   *bytes.Buffer
+	Body   []byte
 }
 
 const MSG_HEADER_LEN = 8
 
 // Serialize & write to a given io.Writer
-func (m *Message) WriteTo(w io.Writer) (int64, error) {
-	header := m.serializeHeader(uint32(m.Body.Len()))
+func (m *Msg) WriteTo(w io.Writer) (int64, error) {
+	header := m.serializeHeader(uint32(len(m.Body)))
 
 	nh, err := w.Write(header)
 	if err != nil {
 		return int64(nh), err
 	}
 
-	nd, err := m.Body.WriteTo(w)
-	return nd + int64(nh), err
+	var nd int
+	if len(m.Body) > 0 {
+		nd, err = w.Write(m.Body)
+	}
+
+	return int64(nh + nd), err
 }
 
 // Read & deserialize from a given io.Reader
-func (m *Message) ReadFrom(r io.Reader) (int64, error) {
+func (m *Msg) ReadFrom(r io.Reader) (int64, error) {
 	header := make([]byte, MSG_HEADER_LEN)
 	nh, err := r.Read(header)
 	if err != nil {
@@ -50,19 +53,25 @@ func (m *Message) ReadFrom(r io.Reader) (int64, error) {
 		return int64(nh), err
 	}
 
-	var nd int64
+	var nd int
 	if dataLen > 0 {
-		g := int(dataLen) - m.Body.Cap()
-		if g > 0 {
-			m.Body.Grow(g)
+		m.Body = make([]byte, dataLen)
+		nd, err = r.Read(m.Body)
+		if err != nil {
+			return int64(nh + nd), err
 		}
-		nd, err = m.Body.ReadFrom(r)
 	}
 
-	return nd + int64(nh), err
+	return int64(nh + nd), err
 }
 
-func (m *Message) serializeHeader(gobDataLen uint32) []byte {
+func ReadMsgFrom(r io.Reader) (*Msg, error) {
+	m := Msg{}
+	_, err := m.ReadFrom(r)
+	return &m, err
+}
+
+func (m *Msg) serializeHeader(gobDataLen uint32) []byte {
 	b := make([]byte, MSG_HEADER_LEN)
 
 	// OP
@@ -81,7 +90,7 @@ func (m *Message) serializeHeader(gobDataLen uint32) []byte {
 	return b
 }
 
-func (m *Message) deserializeHeader(b []byte) (uint32, error) {
+func (m *Msg) deserializeHeader(b []byte) (uint32, error) {
 	if len(b) != MSG_HEADER_LEN {
 		return 0, errors.New("invalid header: len(b) != 8")
 	}
