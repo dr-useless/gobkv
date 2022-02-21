@@ -1,4 +1,4 @@
-package main
+package store
 
 // To do:
 // Look at faster implementations

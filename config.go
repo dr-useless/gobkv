@@ -4,29 +4,29 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+
+	"github.com/dr-useless/gobkv/store"
 )
 
 type Config struct {
-	Network          string // tcp, unix etc...
-	Address          string // 0.0.0.0:8100
-	CertFile         string
-	KeyFile          string
-	AuthSecret       string
-	Persist          bool   // write data to file system
-	PartCount        int    // number of partitions
-	PartDir          string // directory for partition storage, default is ${pwd}/parts
-	PartWritePeriod  int    // seconds
-	ExpiryScanPeriod int    // seconds
+	Network           string // tcp, unix etc...
+	Address           string // 0.0.0.0:8100
+	CertFile          string
+	KeyFile           string
+	AuthSecret        string
+	Parts             store.PartConfig
+	Dir               string // storage dir for parts & repl
+	ExpiryScanPeriod  int    // seconds
+	ReplicationServer store.ReplServerConfig
+	ReplicationClient store.ReplClientConfig
 }
 
 func (c *Config) validate() error {
 	if c.Network == "" || c.Address == "" {
 		return errors.New("network & address must not be blank")
 	}
-	if c.Persist {
-		if c.PartCount < 1 {
-			return errors.New("part count must be greater than 0")
-		}
+	if c.Parts.Persist && c.Parts.Count < 1 {
+		return errors.New("part count must be greater than 0")
 	}
 	return nil
 }

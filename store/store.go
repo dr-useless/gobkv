@@ -1,43 +1,47 @@
-package main
+package store
 
 import (
 	"strings"
 	"sync"
+	"time"
 )
 
 // Exported struct for net/rpc calls
 // Holds configuration for convenience
 type Store struct {
-	Parts map[string]*Part
+	Parts      map[string]*Part
+	ReplServer *ReplServer
+	Dir        string
 }
 
 // Get Slot for specified key
 // from appropriate partition
 func (s *Store) Get(key string) *Slot {
 	part := s.getClosestPart(key)
-	part.Mux.RLock()
-	defer part.Mux.RUnlock()
+	part.Mutex.RLock()
+	defer part.Mutex.RUnlock()
 	return part.Data[key]
 }
 
 // Set specified Slot
 // in appropriate partition
 func (s *Store) Set(key string, slot *Slot) {
+	slot.Modified = uint64(time.Now().Unix())
 	part := s.getClosestPart(key)
-	part.Mux.Lock()
+	part.Mutex.Lock()
 	part.Data[key] = slot
 	part.MustWrite = true
-	part.Mux.Unlock()
+	part.Mutex.Unlock()
 }
 
 // Remove Slot with specified key
 // from appropriate partition
 func (s *Store) Del(key string) {
 	part := s.getClosestPart(key)
-	part.Mux.Lock()
+	part.Mutex.Lock()
 	delete(part.Data, key)
 	part.MustWrite = true
-	part.Mux.Unlock()
+	part.Mutex.Unlock()
 }
 
 // Concurrently search all parts
@@ -45,11 +49,11 @@ func (s *Store) Del(key string) {
 // returns list of matching keys
 func (s *Store) List(prefix string) []string {
 	keys := make([]string, 0)
-	mux := new(sync.Mutex)
+	mutex := new(sync.Mutex)
 	wg := new(sync.WaitGroup)
 	for _, part := range s.Parts {
 		wg.Add(1)
-		go func(part *Part, keys *[]string, wg *sync.WaitGroup, mux *sync.Mutex) {
+		go func(part *Part, keys *[]string, wg *sync.WaitGroup, mutex *sync.Mutex) {
 			defer wg.Done()
 			var partKeys []string
 			if prefix == "" {
@@ -70,11 +74,11 @@ func (s *Store) List(prefix string) []string {
 				}
 			}
 			if len(partKeys) > 0 {
-				mux.Lock()
+				mutex.Lock()
 				*keys = append(*keys, partKeys...)
-				mux.Unlock()
+				mutex.Unlock()
 			}
-		}(part, &keys, wg, mux)
+		}(part, &keys, wg, mutex)
 	}
 	wg.Wait()
 	return keys

@@ -9,4 +9,4 @@
 
 gobkv
 config.json
-parts/
+state/

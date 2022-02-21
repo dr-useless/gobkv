@@ -1,4 +1,4 @@
-package protocol
+package store
 
 import (
 	"encoding/binary"
@@ -10,49 +10,51 @@ import (
 | 0             | 1             | 2             | 3             |
 |0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|
 +---------------+---------------+---------------+---------------+
-| < OP        > | < STATUS    > | < KEY LEN UINT16            > |
+| < OP        > | UNUSED        | < KEY LEN UINT16            > |
 | < VALUE LEN UINT64                                            |
 |                                                             > |
 | < KEY EXPIRES UNIX UINT64                                     |
+|                                                             > |
+| < MODIFIED UNIX UINT64                                        |
 |                                                             > |
   KEY ...
   VALUE ...
 */
 
-type Message struct {
-	Op      byte
-	Status  byte
-	Expires uint64
-	Key     string
-	Value   []byte
+type ReplOp struct {
+	Op       byte
+	Expires  uint64
+	Modified uint64
+	Key      string
+	Value    []byte
 }
 
-const MSG_HEADER_LEN = 20
+const REP_HEADER_LEN = 28
 
 // Serialize & write to a given io.Writer
-func (m *Message) Write(w io.Writer) error {
-	header := m.serializeHeader()
+func (rep *ReplOp) Write(w io.Writer) error {
+	header := rep.serializeHeader()
 	_, err := w.Write(header)
 	if err != nil {
 		return err
 	}
-	_, err = w.Write([]byte(m.Key))
+	_, err = w.Write([]byte(rep.Key))
 	if err != nil {
 		return err
 	}
-	_, err = w.Write(m.Value)
+	_, err = w.Write(rep.Value)
 	return err
 }
 
 // Read & deserialize from a given io.Reader
-func (m *Message) Read(r io.Reader) error {
-	header := make([]byte, MSG_HEADER_LEN)
+func (rep *ReplOp) Read(r io.Reader) error {
+	header := make([]byte, REP_HEADER_LEN)
 	_, err := r.Read(header)
 	if err != nil {
 		return err
 	}
 
-	keyLen, valLen := m.deserializeHeader(header)
+	keyLen, valLen := rep.deserializeHeader(header)
 
 	if keyLen > 0 {
 		keyBytes := make([]byte, keyLen)
@@ -60,28 +62,27 @@ func (m *Message) Read(r io.Reader) error {
 		if err != nil {
 			return err
 		}
-		m.Key = string(keyBytes)
+		rep.Key = string(keyBytes)
 	}
 
 	if valLen > 0 {
-		m.Value = make([]byte, valLen)
-		_, err = r.Read(m.Value)
+		rep.Value = make([]byte, valLen)
+		_, err = r.Read(rep.Value)
 	}
 
 	return err
 }
 
-func (m *Message) serializeHeader() []byte {
-	b := make([]byte, MSG_HEADER_LEN)
+func (rep *ReplOp) serializeHeader() []byte {
+	b := make([]byte, REP_HEADER_LEN)
 
-	// OP
-	b[0] = m.Op
+	// OP [0]
+	b[0] = rep.Op
 
-	// STATUS
-	b[1] = m.Status
+	// UNUSED [1]
 
 	// KEY LEN [2:4]
-	keyLen := len(m.Key)
+	keyLen := len(rep.Key)
 	if keyLen > 0 {
 		bKeyLen := make([]byte, 2)
 		binary.BigEndian.PutUint16(bKeyLen, uint16(keyLen))
@@ -92,30 +93,36 @@ func (m *Message) serializeHeader() []byte {
 	b8 := make([]byte, 8)
 
 	// VAL LEN [4:12]
-	valLen := len(m.Value)
+	valLen := len(rep.Value)
 	if valLen > 0 {
 		binary.BigEndian.PutUint64(b8, uint64(valLen))
 		copy(b[4:12], b8)
 	}
 
 	// EXPIRES [12:20]
-	if m.Expires > 0 {
-		binary.BigEndian.PutUint64(b8, m.Expires)
+	if rep.Expires > 0 {
+		binary.BigEndian.PutUint64(b8, rep.Expires)
 		copy(b[12:20], b8)
+	}
+
+	// MODIFIED [20:28]
+	if rep.Expires > 0 {
+		binary.BigEndian.PutUint64(b8, rep.Modified)
+		copy(b[20:28], b8)
 	}
 
 	return b
 }
 
-func (m *Message) deserializeHeader(b []byte) (int, int) {
-	if len(b) != MSG_HEADER_LEN {
+func (rep *ReplOp) deserializeHeader(b []byte) (int, int) {
+	if len(b) != REP_HEADER_LEN {
 		log.Println("invalid header")
 		return 0, 0
 	}
-	m.Op = b[0]
-	m.Status = b[1]
+	rep.Op = b[0]
 	keyLen := int(binary.BigEndian.Uint16(b[2:4]))
 	valLen := int(binary.BigEndian.Uint64(b[4:12]))
-	m.Expires = binary.BigEndian.Uint64(b[12:20])
+	rep.Expires = binary.BigEndian.Uint64(b[12:20])
+	rep.Modified = binary.BigEndian.Uint64(b[20:28])
 	return keyLen, valLen
 }

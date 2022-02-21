@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"log"
+
+	"github.com/dr-useless/gobkv/store"
 )
 
 var cpuProfile = flag.String("cpuprof", "", "write cpu profile to `file`")
@@ -22,18 +24,37 @@ func main() {
 		log.Fatal("failed to load config: ", err)
 	}
 
-	store := Store{}
-	store.ensureParts(&cfg)
-	go store.scanForExpiredKeys(&cfg)
+	st := store.Store{
+		Dir: cfg.Dir,
+	}
+	st.EnsureParts(&cfg.Parts)
+	go st.ScanForExpiredKeys(&cfg.Parts, cfg.ExpiryScanPeriod)
+
+	// if ReplServer is defined, start as master
+	if cfg.ReplicationServer.Address != "" {
+		log.Println("configured as master")
+		repl := store.ReplServer{}
+		repl.Init(&cfg.ReplicationServer)
+		st.ReplServer = &repl
+	} else if cfg.ReplicationClient.Address != "" {
+		log.Println("configured as replica")
+		replClient := store.ReplClient{
+			Dir: cfg.Dir,
+		}
+		replClient.Store = &st
+		replClient.Init(&cfg.ReplicationClient)
+	}
 
 	watchdog := Watchdog{
-		store: &store,
+		store: &st,
 		cfg:   &cfg,
 	}
+	// blocks until parts are ready
 	watchdog.readFromPartFiles()
 	go watchdog.watch()
 
-	listener, err := getListener(&cfg)
+	listener, err := getListener(
+		cfg.Network, cfg.Address, cfg.CertFile, cfg.KeyFile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -44,6 +65,6 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		go serveConn(conn, &store, cfg.AuthSecret)
+		go serveConn(conn, &st, cfg.AuthSecret)
 	}
 }

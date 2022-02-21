@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dr-useless/gobkv/protocol"
+	"github.com/dr-useless/gobkv/store"
 )
 
 const BACKOFF = 10        // ms
@@ -14,7 +15,7 @@ const BACKOFF_LIMIT = 100 // ms
 
 // Listens for requests
 // & sends response
-func serveConn(conn net.Conn, store *Store, authSecret string) {
+func serveConn(conn net.Conn, store *store.Store, authSecret string) {
 	backoff := BACKOFF // ms
 	authed := authSecret == ""
 	var msg protocol.Message
@@ -92,8 +93,8 @@ func handleAuth(conn net.Conn, msg *protocol.Message, secret string) bool {
 	return authed
 }
 
-func handleGet(conn net.Conn, msg *protocol.Message, store *Store) {
-	slot := store.Get(msg.Key)
+func handleGet(conn net.Conn, msg *protocol.Message, s *store.Store) {
+	slot := s.Get(msg.Key)
 	resp := protocol.Message{
 		Op:  protocol.OpGet,
 		Key: msg.Key,
@@ -108,12 +109,12 @@ func handleGet(conn net.Conn, msg *protocol.Message, store *Store) {
 	resp.Write(conn)
 }
 
-func handleSet(conn net.Conn, msg *protocol.Message, store *Store) {
-	slot := Slot{
+func handleSet(conn net.Conn, msg *protocol.Message, s *store.Store) {
+	slot := store.Slot{
 		Value:   msg.Value,
 		Expires: msg.Expires,
 	}
-	store.Set(msg.Key, &slot)
+	s.Set(msg.Key, &slot)
 	if msg.Op == protocol.OpSetAck {
 		resp := protocol.Message{
 			Op:     msg.Op,
@@ -126,8 +127,8 @@ func handleSet(conn net.Conn, msg *protocol.Message, store *Store) {
 	}
 }
 
-func handleDel(conn net.Conn, msg *protocol.Message, store *Store) {
-	store.Del(msg.Key)
+func handleDel(conn net.Conn, msg *protocol.Message, s *store.Store) {
+	s.Del(msg.Key)
 	if msg.Op == protocol.OpDelAck {
 		resp := protocol.Message{
 			Op:     msg.Op,
@@ -140,8 +141,8 @@ func handleDel(conn net.Conn, msg *protocol.Message, store *Store) {
 
 // TODO: add ability to stream unknown length,
 // then stream keys as they are found (buffered)
-func handleList(conn net.Conn, msg *protocol.Message, store *Store) {
-	keys := store.List(msg.Key)
+func handleList(conn net.Conn, msg *protocol.Message, s *store.Store) {
+	keys := s.List(msg.Key)
 	keyStr := strings.Join(keys, " ")
 	resp := protocol.Message{
 		Op:     protocol.OpList,
