@@ -1,0 +1,17 @@
+{
+  "Network": "tcp",
+  "Address": "0.0.0.0:8100",
+  "AuthSecret": "mongo",
+  "Dir": "state/master",
+  "Parts": {
+    "Persist": true,
+    "Count": 32
+  },
+  "PartWritePeriod": 10,
+  "ExpiryScanPeriod": 5,
+  "ReplMasterConfig":{
+    "Network": "tcp",
+    "Address": "0.0.0.0:8101",
+    "AuthSecret": "mongorepl"
+  }
+}

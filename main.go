@@ -31,18 +31,18 @@ func main() {
 	go st.ScanForExpiredKeys(&cfg.Parts, cfg.ExpiryScanPeriod)
 
 	// if ReplServer is defined, start as master
-	if cfg.ReplicationServer.Address != "" {
+	if cfg.ReplMasterConfig.Address != "" {
 		log.Println("configured as master")
-		repl := store.ReplServer{}
-		repl.Init(&cfg.ReplicationServer)
-		st.ReplServer = &repl
-	} else if cfg.ReplicationClient.Address != "" {
+		replMaster := store.ReplMaster{}
+		go replMaster.Init(&cfg.ReplMasterConfig)
+		st.ReplMaster = &replMaster
+	} else if cfg.ReplClientConfig.Address != "" {
 		log.Println("configured as replica")
 		replClient := store.ReplClient{
 			Dir: cfg.Dir,
 		}
 		replClient.Store = &st
-		replClient.Init(&cfg.ReplicationClient)
+		replClient.Init(&cfg.ReplClientConfig)
 	}
 
 	watchdog := Watchdog{
@@ -53,7 +53,7 @@ func main() {
 	watchdog.readFromPartFiles()
 	go watchdog.watch()
 
-	listener, err := getListener(
+	listener, err := store.GetListener(
 		cfg.Network, cfg.Address, cfg.CertFile, cfg.KeyFile)
 	if err != nil {
 		log.Fatal(err)

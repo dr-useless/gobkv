@@ -14,7 +14,7 @@ const BACKOFF_LIMIT = 100 // ms
 
 // Listens for requests
 // & sends response
-func serveConn(conn net.Conn, store *store.Store, authSecret string) {
+func serveConn(conn net.Conn, st *store.Store, authSecret string) {
 	backoff := BACKOFF // ms
 	authed := authSecret == ""
 loop:
@@ -48,17 +48,17 @@ loop:
 		// requires auth
 		switch msg.Op {
 		case protocol.OpGet:
-			handleGet(conn, msg, store)
+			handleGet(conn, msg, st)
 		case protocol.OpSet:
-			handleSet(conn, msg, store)
+			handleSet(conn, msg, st)
 		case protocol.OpSetAck:
-			handleSet(conn, msg, store)
+			handleSet(conn, msg, st)
 		case protocol.OpDel:
-			handleDel(conn, msg, store)
+			handleDel(conn, msg, st)
 		case protocol.OpDelAck:
-			handleDel(conn, msg, store)
+			handleDel(conn, msg, st)
 		case protocol.OpList:
-			handleList(conn, msg, store)
+			handleList(conn, msg, st)
 		case protocol.OpClose:
 			break loop
 		}
@@ -86,13 +86,13 @@ func handleAuth(conn net.Conn, msg *protocol.Msg, secret string) bool {
 	return authed
 }
 
-func handleGet(conn net.Conn, msg *protocol.Msg, s *store.Store) {
+func handleGet(conn net.Conn, msg *protocol.Msg, st *store.Store) {
 	req, err := protocol.DecodeData(msg.Body)
 	if err != nil {
 		respondWithStatus(conn, protocol.StatusError)
 		return
 	}
-	slot := s.Get(req.Key)
+	slot := st.Get(req.Key)
 	if slot == nil {
 		respondWithStatus(conn, protocol.StatusNotFound)
 		return
@@ -111,7 +111,7 @@ func handleGet(conn net.Conn, msg *protocol.Msg, s *store.Store) {
 	resp.WriteTo(conn)
 }
 
-func handleSet(conn net.Conn, msg *protocol.Msg, s *store.Store) {
+func handleSet(conn net.Conn, msg *protocol.Msg, st *store.Store) {
 	d, err := protocol.DecodeData(msg.Body)
 	if err != nil {
 		respondWithStatus(conn, protocol.StatusError)
@@ -121,19 +121,19 @@ func handleSet(conn net.Conn, msg *protocol.Msg, s *store.Store) {
 		Value:   d.Value,
 		Expires: d.Expires,
 	}
-	s.Set(d.Key, &slot)
+	st.Set(d.Key, &slot)
 	if msg.Op == protocol.OpSetAck {
 		respondWithStatus(conn, protocol.StatusOk)
 	}
 }
 
-func handleDel(conn net.Conn, msg *protocol.Msg, s *store.Store) {
+func handleDel(conn net.Conn, msg *protocol.Msg, st *store.Store) {
 	d, err := protocol.DecodeData(msg.Body)
 	if err != nil {
 		respondWithStatus(conn, protocol.StatusError)
 		return
 	}
-	s.Del(d.Key)
+	st.Del(d.Key)
 	if msg.Op == protocol.OpDelAck {
 		respondWithStatus(conn, protocol.StatusOk)
 	}
@@ -141,14 +141,14 @@ func handleDel(conn net.Conn, msg *protocol.Msg, s *store.Store) {
 
 // TODO: add ability to stream unknown length,
 // then stream keys as they are found (buffered)
-func handleList(conn net.Conn, msg *protocol.Msg, s *store.Store) {
+func handleList(conn net.Conn, msg *protocol.Msg, st *store.Store) {
 	d, err := protocol.DecodeData(msg.Body)
 	if err != nil {
 		respondWithStatus(conn, protocol.StatusError)
 		return
 	}
 	dResp := protocol.Data{
-		Keys: s.List(d.Key),
+		Keys: st.List(d.Key),
 	}
 	dRespEnc, err := dResp.Encode()
 	if err != nil {

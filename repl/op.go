@@ -1,4 +1,4 @@
-package store
+package repl
 
 import (
 	"encoding/binary"
@@ -32,29 +32,29 @@ type ReplOp struct {
 const REP_HEADER_LEN = 28
 
 // Serialize & write to a given io.Writer
-func (rep *ReplOp) Write(w io.Writer) error {
-	header := rep.serializeHeader()
+func (op *ReplOp) Write(w io.Writer) error {
+	header := op.serializeHeader()
 	_, err := w.Write(header)
 	if err != nil {
 		return err
 	}
-	_, err = w.Write([]byte(rep.Key))
+	_, err = w.Write([]byte(op.Key))
 	if err != nil {
 		return err
 	}
-	_, err = w.Write(rep.Value)
+	_, err = w.Write(op.Value)
 	return err
 }
 
 // Read & deserialize from a given io.Reader
-func (rep *ReplOp) Read(r io.Reader) error {
+func (op *ReplOp) Read(r io.Reader) error {
 	header := make([]byte, REP_HEADER_LEN)
 	_, err := r.Read(header)
 	if err != nil {
 		return err
 	}
 
-	keyLen, valLen := rep.deserializeHeader(header)
+	keyLen, valLen := op.deserializeHeader(header)
 
 	if keyLen > 0 {
 		keyBytes := make([]byte, keyLen)
@@ -62,27 +62,27 @@ func (rep *ReplOp) Read(r io.Reader) error {
 		if err != nil {
 			return err
 		}
-		rep.Key = string(keyBytes)
+		op.Key = string(keyBytes)
 	}
 
 	if valLen > 0 {
-		rep.Value = make([]byte, valLen)
-		_, err = r.Read(rep.Value)
+		op.Value = make([]byte, valLen)
+		_, err = r.Read(op.Value)
 	}
 
 	return err
 }
 
-func (rep *ReplOp) serializeHeader() []byte {
+func (op *ReplOp) serializeHeader() []byte {
 	b := make([]byte, REP_HEADER_LEN)
 
 	// OP [0]
-	b[0] = rep.Op
+	b[0] = op.Op
 
 	// UNUSED [1]
 
 	// KEY LEN [2:4]
-	keyLen := len(rep.Key)
+	keyLen := len(op.Key)
 	if keyLen > 0 {
 		bKeyLen := make([]byte, 2)
 		binary.BigEndian.PutUint16(bKeyLen, uint16(keyLen))
@@ -93,36 +93,36 @@ func (rep *ReplOp) serializeHeader() []byte {
 	b8 := make([]byte, 8)
 
 	// VAL LEN [4:12]
-	valLen := len(rep.Value)
+	valLen := len(op.Value)
 	if valLen > 0 {
 		binary.BigEndian.PutUint64(b8, uint64(valLen))
 		copy(b[4:12], b8)
 	}
 
 	// EXPIRES [12:20]
-	if rep.Expires > 0 {
-		binary.BigEndian.PutUint64(b8, rep.Expires)
+	if op.Expires > 0 {
+		binary.BigEndian.PutUint64(b8, op.Expires)
 		copy(b[12:20], b8)
 	}
 
 	// MODIFIED [20:28]
-	if rep.Expires > 0 {
-		binary.BigEndian.PutUint64(b8, rep.Modified)
+	if op.Expires > 0 {
+		binary.BigEndian.PutUint64(b8, op.Modified)
 		copy(b[20:28], b8)
 	}
 
 	return b
 }
 
-func (rep *ReplOp) deserializeHeader(b []byte) (int, int) {
+func (op *ReplOp) deserializeHeader(b []byte) (int, int) {
 	if len(b) != REP_HEADER_LEN {
 		log.Println("invalid header")
 		return 0, 0
 	}
-	rep.Op = b[0]
+	op.Op = b[0]
 	keyLen := int(binary.BigEndian.Uint16(b[2:4]))
 	valLen := int(binary.BigEndian.Uint64(b[4:12]))
-	rep.Expires = binary.BigEndian.Uint64(b[12:20])
-	rep.Modified = binary.BigEndian.Uint64(b[20:28])
+	op.Expires = binary.BigEndian.Uint64(b[12:20])
+	op.Modified = binary.BigEndian.Uint64(b[20:28])
 	return keyLen, valLen
 }

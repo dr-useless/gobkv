@@ -10,7 +10,7 @@ import (
 // Holds configuration for convenience
 type Store struct {
 	Parts      map[string]*Part
-	ReplServer *ReplServer
+	ReplMaster *ReplMaster
 	Dir        string
 }
 

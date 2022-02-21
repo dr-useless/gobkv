@@ -9,16 +9,16 @@ import (
 )
 
 type Config struct {
-	Network           string // tcp, unix etc...
-	Address           string // 0.0.0.0:8100
-	CertFile          string
-	KeyFile           string
-	AuthSecret        string
-	Parts             store.PartConfig
-	Dir               string // storage dir for parts & repl
-	ExpiryScanPeriod  int    // seconds
-	ReplicationServer store.ReplServerConfig
-	ReplicationClient store.ReplClientConfig
+	Network          string // tcp, unix etc...
+	Address          string // 0.0.0.0:8100
+	CertFile         string
+	KeyFile          string
+	AuthSecret       string
+	Parts            store.PartConfig
+	Dir              string // storage dir for parts & repl
+	ExpiryScanPeriod int    // seconds
+	ReplMasterConfig store.ReplMasterConfig
+	ReplClientConfig store.ReplClientConfig
 }
 
 func (c *Config) validate() error {

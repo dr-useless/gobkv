@@ -8,6 +8,9 @@ import (
 	"os"
 	"path"
 	"time"
+
+	"github.com/dr-useless/gobkv/protocol"
+	"github.com/dr-useless/gobkv/repl"
 )
 
 const replFileName = "repl.gob"
@@ -27,6 +30,8 @@ type ReplClientState struct {
 type ReplClientConfig struct {
 	Network    string
 	Address    string
+	CertFile   string
+	KeyFile    string
 	AuthSecret string
 }
 
@@ -34,6 +39,25 @@ type ReplClientConfig struct {
 func (rc *ReplClient) Init(cfg *ReplClientConfig) {
 	rc.ensureStateFile()
 	go rc.writeStateToFilePeriodically()
+
+	conn, err := GetConn(cfg.Network, cfg.Address, cfg.CertFile, cfg.KeyFile)
+	if err != nil {
+		log.Fatal("failed to start repl client")
+	}
+
+	data := &repl.ClientMsg{
+		Id:         rc.State.Id,
+		Head:       rc.State.Head,
+		AuthSecret: cfg.AuthSecret,
+	}
+	dataEnc, _ := data.Encode()
+
+	msg := protocol.Msg{
+		Body: dataEnc,
+	}
+	msg.WriteTo(conn)
+
+	log.Println("authed with repl master!! woohoooo :)")
 }
 
 // ensures that repl file exists
