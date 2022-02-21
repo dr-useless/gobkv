@@ -18,14 +18,14 @@ const hashLen = 4
 type Part struct {
 	Id        []byte
 	Mutex     *sync.RWMutex
-	Data      map[string]*Slot
+	Slots     map[string]*Slot
 	MustWrite bool
 }
 
 type Slot struct {
 	Value    []byte
-	Expires  uint64
-	Modified uint64
+	Expires  int64
+	Modified int64
 }
 
 type PartConfig struct {
@@ -44,7 +44,7 @@ func (part *Part) WriteToFile(partName, dir string) {
 		log.Fatalf("failed to create part file: %s\r\n", err)
 	}
 	part.Mutex.RLock()
-	gob.NewEncoder(file).Encode(&part.Data)
+	gob.NewEncoder(file).Encode(&part.Slots)
 	part.MustWrite = false
 	part.Mutex.RUnlock()
 	file.Close()
@@ -68,7 +68,7 @@ func (s *Store) EnsureParts(cfg *PartConfig) {
 			s.Parts[partName] = &Part{
 				Id:    partId,
 				Mutex: new(sync.RWMutex),
-				Data:  make(map[string]*Slot),
+				Slots: make(map[string]*Slot),
 			}
 		}
 		newListFile, err := os.Create(listPath)
@@ -89,7 +89,7 @@ func (s *Store) EnsureParts(cfg *PartConfig) {
 			s.Parts[name] = &Part{
 				Id:    id,
 				Mutex: new(sync.RWMutex),
-				Data:  make(map[string]*Slot),
+				Slots: make(map[string]*Slot),
 			}
 		}
 		log.Printf("initialised %v parts from list\r\n", len(s.Parts))
@@ -107,7 +107,7 @@ func (p *Part) ReadFromFile(wg *sync.WaitGroup, dir string) {
 		log.Printf("failed to open partition %s\r\n", name)
 		return
 	}
-	err = gob.NewDecoder(file).Decode(&p.Data)
+	err = gob.NewDecoder(file).Decode(&p.Slots)
 	if err != nil {
 		log.Printf("failed to decode data in partition %s\r\n", name)
 		return

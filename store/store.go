@@ -20,16 +20,16 @@ func (s *Store) Get(key string) *Slot {
 	part := s.getClosestPart(key)
 	part.Mutex.RLock()
 	defer part.Mutex.RUnlock()
-	return part.Data[key]
+	return part.Slots[key]
 }
 
 // Set specified Slot
 // in appropriate partition
 func (s *Store) Set(key string, slot *Slot) {
-	slot.Modified = uint64(time.Now().Unix())
+	slot.Modified = time.Now().Unix()
 	part := s.getClosestPart(key)
 	part.Mutex.Lock()
-	part.Data[key] = slot
+	part.Slots[key] = slot
 	part.MustWrite = true
 	part.Mutex.Unlock()
 }
@@ -39,7 +39,7 @@ func (s *Store) Set(key string, slot *Slot) {
 func (s *Store) Del(key string) {
 	part := s.getClosestPart(key)
 	part.Mutex.Lock()
-	delete(part.Data, key)
+	delete(part.Slots, key)
 	part.MustWrite = true
 	part.Mutex.Unlock()
 }
@@ -59,15 +59,15 @@ func (s *Store) List(prefix string) []string {
 			if prefix == "" {
 				// no prefix given, will return all keys
 				// so allocate enough space
-				partKeys = make([]string, len(part.Data))
+				partKeys = make([]string, len(part.Slots))
 				i := 0
-				for k := range part.Data {
+				for k := range part.Slots {
 					partKeys[i] = k
 					i++
 				}
 			} else {
 				partKeys = make([]string, 0)
-				for k := range part.Data {
+				for k := range part.Slots {
 					if strings.HasPrefix(k, prefix) {
 						partKeys = append(partKeys, k)
 					}

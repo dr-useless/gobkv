@@ -19,15 +19,15 @@ func (s *Store) ScanForExpiredKeys(cfg *PartConfig, scanPeriod int) {
 			go func(part *Part, partName string, partDir string) {
 				defer wg.Done()
 				part.Mutex.RLock()
-				for k, v := range part.Data {
-					if v.Expires == 0 {
+				for k, slot := range part.Slots {
+					if slot.Expires == 0 {
 						continue
 					}
-					expires := time.Unix(int64(v.Expires), 0)
+					expires := time.Unix(int64(slot.Expires), 0)
 					if time.Now().After(expires) {
 						part.Mutex.RUnlock()
 						part.Mutex.Lock()
-						delete(part.Data, k)
+						delete(part.Slots, k)
 						part.MustWrite = true
 						part.Mutex.Unlock()
 						part.Mutex.RLock()

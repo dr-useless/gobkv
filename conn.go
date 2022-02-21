@@ -1,9 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"encoding/gob"
 	"log"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/dr-useless/gobkv/protocol"
@@ -23,7 +24,7 @@ func serveConn(conn net.Conn, store *store.Store, authSecret string) {
 loop:
 	for {
 		msg = protocol.Message{}
-		err = msg.Read(conn)
+		_, err = msg.ReadFrom(conn)
 		if err != nil {
 			if backoff > BACKOFF_LIMIT {
 				respondWithStatus(conn, protocol.StatusError)
@@ -76,85 +77,106 @@ func handlePing(conn net.Conn) {
 		Op:     protocol.OpPong,
 		Status: protocol.StatusOk,
 	}
-	resp.Write(conn)
+	resp.WriteTo(conn)
 }
 
 func handleAuth(conn net.Conn, msg *protocol.Message, secret string) bool {
-	authed := msg.Key == secret
-	resp := protocol.Message{
-		Op: protocol.OpAuth,
+	given, err := msg.Body.ReadString('\n')
+	if err != nil {
+		return false
 	}
+	authed := given == secret
 	if authed {
-		resp.Status = protocol.StatusOk
+		respondWithStatus(conn, protocol.StatusOk)
 	} else {
-		resp.Status = protocol.StatusUnauthorized
+		respondWithStatus(conn, protocol.StatusUnauthorized)
 	}
-	resp.Write(conn)
 	return authed
 }
 
 func handleGet(conn net.Conn, msg *protocol.Message, s *store.Store) {
-	slot := s.Get(msg.Key)
+	d, err := decodeMsgData(msg)
+	if err != nil {
+		respondWithStatus(conn, protocol.StatusError)
+	}
+	slot := s.Get(d.Key)
+	if slot == nil {
+		respondWithStatus(conn, protocol.StatusNotFound)
+		return
+	}
+	var buf bytes.Buffer
+	gob.NewEncoder(&buf).Encode(slot)
 	resp := protocol.Message{
-		Op:  protocol.OpGet,
-		Key: msg.Key,
+		Op:     protocol.OpGet,
+		Status: protocol.StatusOk,
+		Body:   &buf,
 	}
-	if slot != nil {
-		resp.Status = protocol.StatusOk
-		resp.Expires = slot.Expires
-		resp.Value = slot.Value
-	} else {
-		resp.Status = protocol.StatusNotFound
-	}
-	resp.Write(conn)
+	resp.WriteTo(conn)
 }
 
 func handleSet(conn net.Conn, msg *protocol.Message, s *store.Store) {
-	slot := store.Slot{
-		Value:   msg.Value,
-		Expires: msg.Expires,
+	d, err := decodeMsgData(msg)
+	if err != nil {
+		respondWithStatus(conn, protocol.StatusError)
 	}
-	s.Set(msg.Key, &slot)
+	slot := store.Slot{
+		Value:   d.Value,
+		Expires: d.Expires,
+	}
+	s.Set(d.Key, &slot)
 	if msg.Op == protocol.OpSetAck {
-		resp := protocol.Message{
-			Op:     msg.Op,
-			Status: protocol.StatusOk,
-		}
-		err := resp.Write(conn)
-		if err != nil {
-			log.Println(err)
-		}
+		respondWithStatus(conn, protocol.StatusOk)
 	}
 }
 
 func handleDel(conn net.Conn, msg *protocol.Message, s *store.Store) {
-	s.Del(msg.Key)
+	d, err := decodeMsgData(msg)
+	if err != nil {
+		respondWithStatus(conn, protocol.StatusError)
+	}
+	s.Del(d.Key)
 	if msg.Op == protocol.OpDelAck {
-		resp := protocol.Message{
-			Op:     msg.Op,
-			Status: protocol.StatusOk,
-			Key:    msg.Key,
-		}
-		resp.Write(conn)
+		respondWithStatus(conn, protocol.StatusOk)
 	}
 }
 
 // TODO: add ability to stream unknown length,
 // then stream keys as they are found (buffered)
 func handleList(conn net.Conn, msg *protocol.Message, s *store.Store) {
-	keys := s.List(msg.Key)
-	keyStr := strings.Join(keys, " ")
+	d, err := decodeMsgData(msg)
+	if err != nil {
+		respondWithStatus(conn, protocol.StatusError)
+	}
+	dResp := &protocol.Data{
+		Keys: s.List(d.Key),
+	}
+	dRespEnc, err := encodeMsgData(dResp)
+	if err != nil {
+		respondWithStatus(conn, protocol.StatusError)
+	}
 	resp := protocol.Message{
 		Op:     protocol.OpList,
 		Status: protocol.StatusOk,
-		Value:  []byte(keyStr),
+		Body:   dRespEnc,
 	}
-	resp.Write(conn)
+	resp.WriteTo(conn)
 }
 
 func respondWithStatus(conn net.Conn, status byte) {
 	resp := protocol.Message{
 		Status: status,
 	}
-	resp.Write(conn)
+	resp.WriteTo(conn)
+}
+
+func decodeMsgData(msg *protocol.Message) (*protocol.Data, error) {
+	d := protocol.Data{}
+	err := gob.NewDecoder(msg.Body).Decode(&d)
+	return &d, err
+}
+
+func encodeMsgData(d *protocol.Data) (*bytes.Buffer, error) {
+	var buf bytes.Buffer
+	err := gob.NewEncoder(&buf).Encode(d)
+	return &buf, err
 }
