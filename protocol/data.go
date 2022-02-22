@@ -3,7 +3,6 @@ package protocol
 import (
 	"bytes"
 	"encoding/gob"
-	"errors"
 )
 
 // Msg body for normal ops
@@ -15,25 +14,14 @@ type Data struct {
 	Keys    []string
 }
 
-func (d *Data) DecodeFrom(b []byte) error {
+func (v *Data) DecodeFrom(b []byte) error {
 	var buf bytes.Buffer
-	_, err := buf.Write(b)
-	if err != nil {
-		return errors.New("failed to decode data: " + err.Error())
-	}
-	return gob.NewDecoder(&buf).Decode(&d)
+	buf.Write(b)
+	return gob.NewDecoder(&buf).Decode(v)
 }
 
-// Shortcut for DecodeFrom.
-// Returns a pointer to a Data{} struct from decoded body
-func DecodeData(b []byte) (*Data, error) {
-	d := Data{}
-	err := d.DecodeFrom(b)
-	return &d, err
-}
-
-func (d *Data) Encode() ([]byte, error) {
+func (v *Data) Encode() ([]byte, error) {
 	var buf bytes.Buffer
-	err := gob.NewEncoder(&buf).Encode(&d)
+	err := gob.NewEncoder(&buf).Encode(v)
 	return buf.Bytes(), err
 }

@@ -4,6 +4,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/dr-useless/gobkv/protocol"
+	"github.com/dr-useless/gobkv/repl"
 )
 
 // Exported struct for net/rpc calls
@@ -32,6 +35,13 @@ func (s *Store) Set(key string, slot *Slot) {
 	part.Slots[key] = slot
 	part.MustWrite = true
 	part.Mutex.Unlock()
+	s.ReplMaster.AddToHead(repl.Op{
+		Op:       protocol.OpSet,
+		Key:      key,
+		Value:    slot.Value,
+		Expires:  slot.Expires,
+		Modified: slot.Modified,
+	})
 }
 
 // Remove Slot with specified key
@@ -42,6 +52,10 @@ func (s *Store) Del(key string) {
 	delete(part.Slots, key)
 	part.MustWrite = true
 	part.Mutex.Unlock()
+	s.ReplMaster.AddToHead(repl.Op{
+		Op:  protocol.OpDel,
+		Key: key,
+	})
 }
 
 // Concurrently search all parts

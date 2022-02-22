@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"log"
 	"math/rand"
+	"net"
 	"os"
 	"path"
 	"time"
@@ -13,7 +14,9 @@ import (
 	"github.com/dr-useless/gobkv/repl"
 )
 
-const replFileName = "repl.gob"
+const REPL_FILENAME = "repl.gob"
+const BACKOFF = 10        // ms
+const BACKOFF_LIMIT = 100 // ms
 
 type ReplClient struct {
 	State           *ReplClientState
@@ -45,27 +48,27 @@ func (rc *ReplClient) Init(cfg *ReplClientConfig) {
 		log.Fatal("failed to start repl client")
 	}
 
-	data := &repl.ClientMsg{
+	data := repl.ClientMsg{
 		Id:         rc.State.Id,
 		Head:       rc.State.Head,
 		AuthSecret: cfg.AuthSecret,
 	}
 	dataEnc, _ := data.Encode()
-
 	msg := protocol.Msg{
 		Body: dataEnc,
 	}
 	msg.WriteTo(conn)
 
 	log.Println("authed with repl master!! woohoooo :)")
+	go rc.processOps(conn)
 }
 
 // ensures that repl file exists
 func (rc *ReplClient) ensureStateFile() {
-	replFilePath := path.Join(rc.Dir, replFileName)
+	replFilePath := path.Join(rc.Dir, REPL_FILENAME)
 	replFile, err := os.Open(replFilePath)
 	if err != nil {
-		log.Println("no part list found, will create...")
+		log.Println("no repl file found, will create...")
 		// make new file
 		newReplFile, err := os.Create(replFilePath)
 		if err != nil {
@@ -102,7 +105,7 @@ func (rc *ReplClient) writeStateToFilePeriodically() {
 }
 
 func (rc *ReplClient) writeStateToFile() {
-	fullPath := path.Join(rc.Dir, replFileName)
+	fullPath := path.Join(rc.Dir, REPL_FILENAME)
 	file, err := os.Create(fullPath)
 	if err != nil {
 		log.Fatalf("failed to create repl file: %s\r\n", err)
@@ -110,4 +113,30 @@ func (rc *ReplClient) writeStateToFile() {
 	gob.NewEncoder(file).Encode(&rc.State)
 	file.Close()
 	rc.HeadIncremented = false
+}
+
+func (rc *ReplClient) processOps(conn net.Conn) {
+	backoff := BACKOFF
+	for {
+		msg, err := protocol.ReadMsgFrom(conn)
+		if err != nil {
+			log.Println("failed to read repl op msg:", err)
+			if backoff > BACKOFF_LIMIT {
+				break
+			}
+			time.Sleep(time.Duration(backoff) * time.Millisecond)
+			backoff *= 2
+			continue
+		}
+
+		op := repl.Op{}
+		err = op.DecodeFrom(msg.Body)
+		if err != nil {
+			log.Println("failed to decode repl op:", err)
+			continue
+		}
+
+		log.Println("handle repl op:", op)
+	}
+	conn.Close()
 }

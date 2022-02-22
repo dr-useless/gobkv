@@ -87,7 +87,8 @@ func handleAuth(conn net.Conn, msg *protocol.Msg, secret string) bool {
 }
 
 func handleGet(conn net.Conn, msg *protocol.Msg, st *store.Store) {
-	req, err := protocol.DecodeData(msg.Body)
+	req := protocol.Data{}
+	err := req.DecodeFrom(msg.Body)
 	if err != nil {
 		respondWithStatus(conn, protocol.StatusError)
 		return
@@ -97,43 +98,45 @@ func handleGet(conn net.Conn, msg *protocol.Msg, st *store.Store) {
 		respondWithStatus(conn, protocol.StatusNotFound)
 		return
 	}
-	dataResp := protocol.Data{
+	resp := protocol.Data{
 		Key:     req.Key,
 		Value:   slot.Value,
 		Expires: slot.Expires,
 	}
-	body, _ := dataResp.Encode()
-	resp := protocol.Msg{
+	body, _ := resp.Encode()
+	respMsg := protocol.Msg{
 		Op:     protocol.OpGet,
 		Status: protocol.StatusOk,
 		Body:   body,
 	}
-	resp.WriteTo(conn)
+	respMsg.WriteTo(conn)
 }
 
 func handleSet(conn net.Conn, msg *protocol.Msg, st *store.Store) {
-	d, err := protocol.DecodeData(msg.Body)
+	req := protocol.Data{}
+	err := req.DecodeFrom(msg.Body)
 	if err != nil {
 		respondWithStatus(conn, protocol.StatusError)
 		return
 	}
 	slot := store.Slot{
-		Value:   d.Value,
-		Expires: d.Expires,
+		Value:   req.Value,
+		Expires: req.Expires,
 	}
-	st.Set(d.Key, &slot)
+	st.Set(req.Key, &slot)
 	if msg.Op == protocol.OpSetAck {
 		respondWithStatus(conn, protocol.StatusOk)
 	}
 }
 
 func handleDel(conn net.Conn, msg *protocol.Msg, st *store.Store) {
-	d, err := protocol.DecodeData(msg.Body)
+	req := protocol.Data{}
+	err := req.DecodeFrom(msg.Body)
 	if err != nil {
 		respondWithStatus(conn, protocol.StatusError)
 		return
 	}
-	st.Del(d.Key)
+	st.Del(req.Key)
 	if msg.Op == protocol.OpDelAck {
 		respondWithStatus(conn, protocol.StatusOk)
 	}
@@ -142,25 +145,26 @@ func handleDel(conn net.Conn, msg *protocol.Msg, st *store.Store) {
 // TODO: add ability to stream unknown length,
 // then stream keys as they are found (buffered)
 func handleList(conn net.Conn, msg *protocol.Msg, st *store.Store) {
-	d, err := protocol.DecodeData(msg.Body)
+	req := protocol.Data{}
+	err := req.DecodeFrom(msg.Body)
 	if err != nil {
 		respondWithStatus(conn, protocol.StatusError)
 		return
 	}
-	dResp := protocol.Data{
-		Keys: st.List(d.Key),
+	resp := protocol.Data{
+		Keys: st.List(req.Key),
 	}
-	dRespEnc, err := dResp.Encode()
+	body, err := resp.Encode()
 	if err != nil {
 		respondWithStatus(conn, protocol.StatusError)
 		return
 	}
-	resp := protocol.Msg{
+	respMsg := protocol.Msg{
 		Op:     protocol.OpList,
 		Status: protocol.StatusOk,
-		Body:   dRespEnc,
+		Body:   body,
 	}
-	resp.WriteTo(conn)
+	respMsg.WriteTo(conn)
 }
 
 func respondWithStatus(conn net.Conn, status byte) {
