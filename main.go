@@ -3,20 +3,17 @@ package main
 import (
 	"flag"
 	"log"
+	"net"
+	"os"
+	"os/signal"
 
 	"github.com/dr-useless/gobkv/store"
 )
-
-var cpuProfile = flag.String("cpuprof", "", "write cpu profile to `file`")
-var memProfile = flag.String("memprof", "", "write memory profile to `file`")
 
 var configFile = flag.String("c", "", "must be a file path")
 
 func main() {
 	flag.Parse()
-
-	// pprof
-	startCPUProfile()
 
 	cfg, err := loadConfig()
 	if err != nil {
@@ -50,14 +47,16 @@ func main() {
 	}
 	// blocks until parts are ready
 	watchdog.readFromPartFiles()
-	go watchdog.watch()
 
 	listener, err := store.GetListener(
 		cfg.Network, cfg.Address, cfg.CertFile, cfg.KeyFile)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer listener.Close()
+
+	go waitForSigInt(listener, &watchdog)
+	go watchdog.watch()
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -65,5 +64,16 @@ func main() {
 			continue
 		}
 		go serveConn(conn, &st, cfg.AuthSecret)
+	}
+}
+
+func waitForSigInt(listener net.Listener, w *Watchdog) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	for range c {
+		log.Println("will exit cleanly")
+		listener.Close()
+		w.writeAllParts()
+		os.Exit(0)
 	}
 }

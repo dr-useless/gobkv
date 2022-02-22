@@ -2,8 +2,6 @@ package main
 
 import (
 	"log"
-	"os"
-	"os/signal"
 	"sync"
 	"time"
 
@@ -26,25 +24,9 @@ func (w *Watchdog) watch() {
 		period = 10
 	}
 	log.Printf("will write changed partitions every %v seconds\r\n", period)
-	go w.waitForSigInt()
 	for {
 		w.writeAllParts()
 		time.Sleep(time.Duration(period) * time.Second)
-	}
-}
-
-func (w *Watchdog) waitForSigInt() {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	for range c {
-		log.Println("will exit cleanly")
-		w.writeAllParts()
-
-		// pprof
-		stopCPUProfile()
-		makeMemProfile()
-
-		os.Exit(0)
 	}
 }
 
