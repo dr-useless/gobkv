@@ -35,13 +35,16 @@ func (s *Store) Set(key string, slot *Slot) {
 	part.Slots[key] = slot
 	part.MustWrite = true
 	part.Mutex.Unlock()
-	s.ReplMaster.AddToHead(repl.Op{
-		Op:       protocol.OpSet,
-		Key:      key,
-		Value:    slot.Value,
-		Expires:  slot.Expires,
-		Modified: slot.Modified,
-	})
+	if s.ReplMaster != nil {
+		s.ReplMaster.AddToHead(repl.Op{
+			Op:       protocol.OpSet,
+			Key:      key,
+			Value:    slot.Value,
+			Expires:  slot.Expires,
+			Modified: slot.Modified,
+		})
+	}
+
 }
 
 // Remove Slot with specified key
@@ -52,10 +55,12 @@ func (s *Store) Del(key string) {
 	delete(part.Slots, key)
 	part.MustWrite = true
 	part.Mutex.Unlock()
-	s.ReplMaster.AddToHead(repl.Op{
-		Op:  protocol.OpDel,
-		Key: key,
-	})
+	if s.ReplMaster != nil {
+		s.ReplMaster.AddToHead(repl.Op{
+			Op:  protocol.OpDel,
+			Key: key,
+		})
+	}
 }
 
 // Concurrently search all parts

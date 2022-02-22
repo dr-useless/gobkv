@@ -14,7 +14,6 @@ var configFile = flag.String("c", "", "must be a file path")
 
 func main() {
 	flag.Parse()
-	log.SetPrefix("gobkv ")
 
 	// pprof
 	startCPUProfile()

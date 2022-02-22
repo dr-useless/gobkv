@@ -19,15 +19,16 @@ const BACKOFF = 10        // ms
 const BACKOFF_LIMIT = 100 // ms
 
 type ReplClient struct {
-	State           *ReplClientState
-	HeadIncremented bool
-	Store           *Store
-	Dir             string
+	State     *ReplClientState
+	MustWrite bool
+	Store     *Store
+	Dir       string
 }
 
 type ReplClientState struct {
-	Id   []byte
-	Head int
+	ClientId []byte
+	ReplId   []byte
+	Head     int
 }
 
 type ReplClientConfig struct {
@@ -45,21 +46,45 @@ func (rc *ReplClient) Init(cfg *ReplClientConfig) {
 
 	conn, err := GetConn(cfg.Network, cfg.Address, cfg.CertFile, cfg.KeyFile)
 	if err != nil {
-		log.Fatal("failed to start repl client")
+		log.Fatalf("failed to connect to master at %s over %s", cfg.Address, cfg.Network)
 	}
 
-	data := repl.ClientMsg{
-		Id:         rc.State.Id,
-		Head:       rc.State.Head,
+	body := repl.ClientMsgBody{
+		ClientId:   rc.State.ClientId,
 		AuthSecret: cfg.AuthSecret,
+		ReplId:     rc.State.ReplId,
+		Head:       rc.State.Head,
 	}
-	dataEnc, _ := data.Encode()
+	bodyEnc, _ := body.Encode()
 	msg := protocol.Msg{
-		Body: dataEnc,
+		Body: bodyEnc,
 	}
 	msg.WriteTo(conn)
 
-	log.Println("authed with repl master!! woohoooo :)")
+	resp, err := protocol.ReadMsgFrom(conn)
+	if err != nil {
+		log.Fatal(err)
+	}
+	masterMsgBody := repl.MasterMsgBody{}
+	masterMsgBody.DecodeFrom(resp.Body)
+
+	rc.State.ReplId = masterMsgBody.ReplId
+	rc.State.Head = masterMsgBody.Head
+
+	rc.writeStateToFile()
+
+	if masterMsgBody.MustSync {
+		// fully sync
+		log.Println("repl must fully resync")
+	} else {
+		log.Println("repl will resume")
+	}
+
+	log.Printf("\r\nrepl id: %s\r\nhead: %v\r\nclient id: %s",
+		base64.RawStdEncoding.EncodeToString(rc.State.ReplId),
+		rc.State.Head,
+		base64.RawStdEncoding.EncodeToString(rc.State.ClientId))
+
 	go rc.processOps(conn)
 }
 
@@ -77,13 +102,12 @@ func (rc *ReplClient) ensureStateFile() {
 
 		// generate new id
 		rc.State = &ReplClientState{}
-		rc.State.Id = make([]byte, 32)
+		rc.State.ClientId = make([]byte, 32)
 		rand.Seed(time.Now().UnixMicro())
-		rand.Read(rc.State.Id)
+		rand.Read(rc.State.ClientId)
 
 		gob.NewEncoder(newReplFile).Encode(rc.State)
 	} else {
-		// decode list
 		state := ReplClientState{}
 		err := gob.NewDecoder(replFile).Decode(&state)
 		if err != nil {
@@ -91,13 +115,11 @@ func (rc *ReplClient) ensureStateFile() {
 		}
 		rc.State = &state
 	}
-	log.Printf("initialised repl client with id %s and head %v\r\n",
-		base64.RawStdEncoding.EncodeToString(rc.State.Id), rc.State.Head)
 }
 
 func (rc *ReplClient) writeStateToFilePeriodically() {
 	for {
-		if rc.HeadIncremented {
+		if rc.MustWrite {
 			rc.writeStateToFile()
 		}
 		time.Sleep(time.Duration(10) * time.Second)
@@ -112,7 +134,7 @@ func (rc *ReplClient) writeStateToFile() {
 	}
 	gob.NewEncoder(file).Encode(&rc.State)
 	file.Close()
-	rc.HeadIncremented = false
+	rc.MustWrite = false
 }
 
 func (rc *ReplClient) processOps(conn net.Conn) {
@@ -136,7 +158,20 @@ func (rc *ReplClient) processOps(conn net.Conn) {
 			continue
 		}
 
-		log.Println("handle repl op:", op)
+		switch op.Op {
+		case protocol.OpSet:
+			rc.Store.Set(op.Key, &Slot{
+				Value:    op.Value,
+				Expires:  op.Expires,
+				Modified: op.Modified,
+			})
+		case protocol.OpDel:
+			rc.Store.Del(op.Key)
+		default:
+			log.Println("cannot replicate op", protocol.MapOp()[op.Op])
+		}
+
+		log.Println("handled repl op:", op)
 	}
 	conn.Close()
 }

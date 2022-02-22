@@ -104,7 +104,7 @@ func (p *Part) ReadFromFile(wg *sync.WaitGroup, dir string) {
 	fullPath := path.Join(dir, name+".gob")
 	file, err := os.Open(fullPath)
 	if err != nil {
-		log.Printf("failed to open partition %s\r\n", name)
+		//log.Printf("failed to open partition %s\r\n", name)
 		return
 	}
 	err = gob.NewDecoder(file).Decode(&p.Slots)

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"encoding/base64"
 	"log"
 	"math/rand"
@@ -30,9 +31,9 @@ type ReplMaster struct {
 }
 
 type ReplClientReg struct {
-	id         []byte
 	inputChan  chan repl.Op
 	outputChan chan repl.Op
+	conn       net.Conn
 }
 
 type ReplMasterConfig struct {
@@ -80,7 +81,6 @@ func (r *ReplMaster) Init(cfg *ReplMasterConfig) {
 }
 
 func (r *ReplMaster) serveReplClient(conn net.Conn, authSecret string) {
-	var id []byte
 	for {
 		msg, err := protocol.ReadMsgFrom(conn)
 		if err != nil {
@@ -88,7 +88,7 @@ func (r *ReplMaster) serveReplClient(conn net.Conn, authSecret string) {
 			break
 		}
 
-		body := repl.ClientMsg{}
+		body := repl.ClientMsgBody{}
 		err = body.DecodeFrom(msg.Body)
 		if err != nil {
 			log.Println("failed to decode repl client msg:", err)
@@ -99,42 +99,41 @@ func (r *ReplMaster) serveReplClient(conn net.Conn, authSecret string) {
 			break
 		}
 
-		if body.Head < r.tail {
-			// full resync required
-		} else {
-			id = body.Id
-			reg := &ReplClientReg{
-				id: body.Id,
-			}
-			r.registerClient(reg)
-			go r.pushOps(conn, reg)
+		respBody := repl.MasterMsgBody{
+			ReplId: r.id,
+			Head:   r.head,
 		}
-	}
-	if id != nil {
-		r.unregisterClient(id)
+		if body.Head < r.tail || !bytes.Equal(body.ReplId, r.id) {
+			// full sync required
+			respBody.MustSync = true
+		}
+
+		respBodyEnc, _ := respBody.Encode()
+		respMsg := protocol.Msg{
+			Body: respBodyEnc,
+		}
+		respMsg.WriteTo(conn)
+
+		r.registerClient(conn, body.ClientId)
 	}
 	conn.Close()
 }
 
-func (r *ReplMaster) registerClient(reg *ReplClientReg) {
-	key := base64.RawStdEncoding.EncodeToString(reg.id)
-	reg.inputChan = make(chan repl.Op)
-	reg.outputChan = make(chan repl.Op, r.size)
+func (r *ReplMaster) registerClient(conn net.Conn, clientId []byte) {
+	key := base64.RawStdEncoding.EncodeToString(clientId)
 	r.mutex.Lock()
+	reg := r.clients[key]
+	if reg == nil {
+		reg = &ReplClientReg{}
+	}
+	reg.conn = conn
+	if reg.inputChan == nil {
+		reg.inputChan = make(chan repl.Op)
+		reg.outputChan = make(chan repl.Op, r.size)
+	}
 	r.clients[key] = reg
 	r.mutex.Unlock()
-}
-
-func (r *ReplMaster) unregisterClient(id []byte) {
-	key := base64.RawStdEncoding.EncodeToString(id)
-	r.mutex.Lock()
-	delete(r.clients, key)
-	r.mutex.Unlock()
-}
-
-// Client sends OK each time they are ready
-// for the next op
-func (r *ReplMaster) pushOps(conn net.Conn, reg *ReplClientReg) {
+	// keep buffer rolling
 	go func(reg *ReplClientReg) {
 		for op := range reg.inputChan {
 			select {
@@ -142,11 +141,19 @@ func (r *ReplMaster) pushOps(conn net.Conn, reg *ReplClientReg) {
 			default:
 				<-reg.outputChan
 				reg.outputChan <- op
+				r.mutex.Lock()
+				r.tail++
+				r.mutex.Unlock()
 			}
 		}
 	}(reg)
+	go r.pushOps(reg)
+}
 
+func (r *ReplMaster) pushOps(reg *ReplClientReg) {
+	// send things
 	go func(conn net.Conn, outputChan chan repl.Op) {
+		errCount := 0
 		for op := range outputChan {
 			data, err := op.Encode()
 			if err != nil {
@@ -159,18 +166,15 @@ func (r *ReplMaster) pushOps(conn net.Conn, reg *ReplClientReg) {
 			_, err = msg.WriteTo(conn)
 			if err != nil {
 				log.Println("failed to send repl op:", err)
-				// TODO: unregister after some errors
+				errCount++
+				if errCount > 5 {
+					conn.Close()
+					break
+				}
 				continue
 			}
-
+			errCount = 0
 			log.Println("sent ReplOp to client, key:", op.Key)
-
-			/*resp, err := protocol.ReadMsgFrom(conn)
-			if err != nil {
-				log.Println("failed to read repl resp:", err)
-			}
-
-			log.Println("repl client responded with:", protocol.MapStatus()[resp.Status])*/
 		}
-	}(conn, reg.outputChan)
+	}(reg.conn, reg.outputChan)
 }

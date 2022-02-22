@@ -12,6 +12,7 @@
   "ReplMasterConfig":{
     "Network": "tcp",
     "Address": "0.0.0.0:8101",
-    "AuthSecret": "mongorepl"
+    "AuthSecret": "mongorepl",
+    "Size": 5
   }
 }
