@@ -18,8 +18,7 @@ func serveConn(conn net.Conn, st *store.Store, authSecret string) {
 	mc.AddTopic(&msgTopic)
 loop:
 	for mBytes := range msgSub {
-		msg := &protocol.Msg{}
-		err := msg.DecodeFrom(mBytes)
+		msg, err := protocol.DecodeMsg(mBytes)
 		if err != nil {
 			panic(err)
 		}
@@ -33,7 +32,7 @@ loop:
 			continue
 		default:
 			if !authed {
-				respond(&mc, protocol.Msg{
+				respond(&mc, &protocol.Msg{
 					Status: protocol.StatusError,
 				})
 				break loop
@@ -63,7 +62,7 @@ loop:
 }
 
 func handlePing(mc *chamux.MConn) {
-	respond(mc, protocol.Msg{
+	respond(mc, &protocol.Msg{
 		Op:     protocol.OpPong,
 		Status: protocol.StatusOk,
 	})
@@ -85,7 +84,7 @@ func handleGet(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
 		respondWithStatus(mc, protocol.StatusError)
 		return
 	}
-	respond(mc, protocol.Msg{
+	respond(mc, &protocol.Msg{
 		Key:     msg.Key,
 		Value:   slot.Value,
 		Expires: slot.Expires,
@@ -111,13 +110,13 @@ func handleDel(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
 }
 
 func handleList(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
-	respond(mc, protocol.Msg{
+	respond(mc, &protocol.Msg{
 		Keys: st.List(msg.Key),
 	})
 }
 
-func respond(mc *chamux.MConn, resp protocol.Msg) {
-	respEnc, err := resp.Encode()
+func respond(mc *chamux.MConn, resp *protocol.Msg) {
+	respEnc, err := protocol.EncodeMsg(resp)
 	if err != nil {
 		panic(err)
 	}
@@ -125,7 +124,7 @@ func respond(mc *chamux.MConn, resp protocol.Msg) {
 }
 
 func respondWithStatus(mc *chamux.MConn, status byte) {
-	respond(mc, protocol.Msg{
+	respond(mc, &protocol.Msg{
 		Status: status,
 	})
 }

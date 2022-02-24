@@ -15,14 +15,16 @@ type Msg struct {
 	Keys    []string
 }
 
-func (v *Msg) DecodeFrom(b []byte) error {
+func DecodeMsg(b []byte) (*Msg, error) {
+	msg := &Msg{}
 	var buf bytes.Buffer
 	buf.Write(b)
-	return gob.NewDecoder(&buf).Decode(v)
+	err := gob.NewDecoder(&buf).Decode(msg)
+	return msg, err
 }
 
-func (v *Msg) Encode() ([]byte, error) {
+func EncodeMsg(msg *Msg) ([]byte, error) {
 	var buf bytes.Buffer
-	err := gob.NewEncoder(&buf).Encode(v)
+	err := gob.NewEncoder(&buf).Encode(msg)
 	return buf.Bytes(), err
 }
