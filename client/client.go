@@ -23,7 +23,7 @@ type Client struct {
 // made ready.
 // Messages can be receieved on MsgChan.
 func NewClient(conn net.Conn) *Client {
-	mc := chamux.NewMConn(conn, chamux.Gob{}, 2048)
+	mc := chamux.NewMConn(conn, chamux.Gob{}, chamux.Options{})
 	c := &Client{
 		mconn: mc,
 	}
