@@ -6,8 +6,8 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/gob"
+	"fmt"
 	"hash/fnv"
-	"log"
 	"os"
 	"path"
 	"sync"
@@ -62,7 +62,8 @@ func (b *Block) WriteToFile(dir string) {
 	fullPath := path.Join(dir, name+".gob")
 	file, err := os.Create(fullPath)
 	if err != nil {
-		log.Fatalf("failed to create part file: %s\r\n", err)
+		fmt.Println("failed to create part file")
+		panic(err)
 	}
 	b.Mutex.RLock()
 	gob.NewEncoder(file).Encode(&b.Slots)
@@ -84,10 +85,10 @@ func (b *Block) ReadFromFile(wg *sync.WaitGroup, dir string) {
 	err = gob.NewDecoder(file).Decode(&b.Slots)
 	file.Close()
 	if err != nil {
-		log.Printf("failed to decode data in partition %s\r\n", name)
+		fmt.Printf("failed to decode data in block %s\r\n", name)
 		return
 	}
-	log.Printf("read from partition %s", name)
+	fmt.Printf("read from block %s\r\n", name)
 }
 
 // ensures that part files exist
@@ -99,7 +100,7 @@ func (s *Store) EnsureBlocks(cfg *PartConfig) {
 	manifestPath := path.Join(s.Dir, manifestFileName)
 	manifestFile, err := os.Open(manifestPath)
 	if err != nil {
-		log.Println("no manifest found, will create...")
+		fmt.Println("no manifest found, will create...")
 		// parts
 		for p := 0; p < cfg.Count; p++ {
 			partId := make([]byte, idLen)
@@ -122,7 +123,8 @@ func (s *Store) EnsureBlocks(cfg *PartConfig) {
 		}
 		newManifestFile, err := os.Create(manifestPath)
 		if err != nil {
-			log.Fatalf("failed to create manifest, check directory exists: %s", s.Dir)
+			fmt.Printf("failed to create manifest, check directory exists: %s\r\n", s.Dir)
+			panic(err)
 		}
 		manifest := s.getManifest()
 		gob.NewEncoder(newManifestFile).Encode(manifest)
@@ -131,7 +133,8 @@ func (s *Store) EnsureBlocks(cfg *PartConfig) {
 		manifest := make(protocol.Manifest, 0)
 		err := gob.NewDecoder(manifestFile).Decode(&manifest)
 		if err != nil {
-			log.Fatalf("failed to decode manifest: %s", err)
+			fmt.Println("failed to decode manifest")
+			panic(err)
 		}
 		for _, partManifest := range manifest {
 			part := Part{
@@ -148,7 +151,7 @@ func (s *Store) EnsureBlocks(cfg *PartConfig) {
 			s.Parts[getNumber(part.Id)] = &part
 		}
 		blockCount := len(s.Parts) * len(s.Parts)
-		log.Printf("initialised %v blocks from manifest\r\n", blockCount)
+		fmt.Printf("initialised %v blocks from manifest\r\n", blockCount)
 	}
 }
 

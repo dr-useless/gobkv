@@ -11,7 +11,7 @@ import (
 
 func serveConn(conn net.Conn, st *store.Store, authSecret string) {
 	authed := authSecret == ""
-	mc := chamux.NewMConn(conn, chamux.Gob{}, 2048)
+	mc := chamux.NewMConn(conn, chamux.Gob{}, 4096)
 	msgTopic := chamux.NewTopic(client.MSG)
 	msgSub := msgTopic.Subscribe()
 	mc.AddTopic(&msgTopic)

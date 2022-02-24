@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -18,7 +19,8 @@ func main() {
 
 	cfg, err := loadConfig()
 	if err != nil {
-		log.Fatal("failed to load config: ", err)
+		fmt.Println("failed to load config")
+		panic(err)
 	}
 
 	st := store.Store{
@@ -37,7 +39,7 @@ func main() {
 	listener, err := service.GetListener(
 		cfg.Network, cfg.Address, cfg.CertFile, cfg.KeyFile)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	go waitForSigInt(listener, &watchdog)
@@ -57,7 +59,7 @@ func waitForSigInt(listener net.Listener, w *Watchdog) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	for range c {
-		log.Println("will exit cleanly")
+		fmt.Println("will exit cleanly")
 		listener.Close()
 		w.writeAllBlocks()
 		os.Exit(0)

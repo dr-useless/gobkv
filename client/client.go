@@ -46,7 +46,8 @@ func (c *Client) pumpMsgs() {
 	}
 }
 
-func (c *Client) encodeAndPublish(msg *protocol.Msg) error {
+// Encode & publish the given message
+func (c *Client) EncodeAndPublish(msg *protocol.Msg) error {
 	msgEnc, err := protocol.EncodeMsg(msg)
 	if err != nil {
 		return err
@@ -55,11 +56,16 @@ func (c *Client) encodeAndPublish(msg *protocol.Msg) error {
 	return c.mconn.Publish(frame)
 }
 
+// Publish to the underlying MConn
+func (c *Client) Publish(f *chamux.Frame) error {
+	return c.mconn.Publish(f)
+}
+
 // Sends a ping message
 //
 // A status message will follow
 func (c *Client) Ping() error {
-	return c.encodeAndPublish(&protocol.Msg{
+	return c.EncodeAndPublish(&protocol.Msg{
 		Op: protocol.OpPing,
 	})
 }
@@ -75,7 +81,7 @@ func (c *Client) Auth(secret string) error {
 		Op:  protocol.OpAuth,
 		Key: secret,
 	}
-	return c.encodeAndPublish(msg)
+	return c.EncodeAndPublish(msg)
 }
 
 // Sets the value & expires properties of the key
@@ -97,7 +103,7 @@ func (c *Client) Set(key string, value []byte, expires int64, ack bool) error {
 	if ack {
 		msg.Op = protocol.OpSetAck
 	}
-	return c.encodeAndPublish(msg)
+	return c.EncodeAndPublish(msg)
 }
 
 // Get the value & expires time for a key
@@ -108,7 +114,7 @@ func (c *Client) Get(key string) error {
 		Op:  protocol.OpGet,
 		Key: key,
 	}
-	return c.encodeAndPublish(msg)
+	return c.EncodeAndPublish(msg)
 }
 
 // Delete a key
@@ -122,7 +128,7 @@ func (c *Client) Del(key string, ack bool) error {
 	if ack {
 		msg.Op = protocol.OpDelAck
 	}
-	return c.encodeAndPublish(msg)
+	return c.EncodeAndPublish(msg)
 }
 
 // List all keys with the given prefix
@@ -131,5 +137,5 @@ func (c *Client) List(key string) error {
 		Op:  protocol.OpList,
 		Key: key,
 	}
-	return c.encodeAndPublish(msg)
+	return c.EncodeAndPublish(msg)
 }

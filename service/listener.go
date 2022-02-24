@@ -3,20 +3,21 @@ package service
 import (
 	"crypto/rand"
 	"crypto/tls"
-	"log"
+	"fmt"
 	"net"
 )
 
 func GetListener(network, address, certFile, keyFile string) (net.Listener, error) {
-	log.Printf("listening on %s over %s\r\n", address, network)
+	fmt.Printf("listening on %s over %s\r\n", address, network)
 	if certFile == "" {
 		// no cert, return plain listener
 		return net.Listen(network, address)
 	} else {
-		log.Println("expecting TLS connections")
+		fmt.Println("expecting TLS connections")
 		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
-			log.Fatalf("failed to load key pair: %s", err)
+			fmt.Println("failed to load key pair")
+			panic(err)
 		}
 		tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
 		tlsConfig.Rand = rand.Reader

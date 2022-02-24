@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"sync"
 	"time"
 
@@ -23,7 +23,7 @@ func (w *Watchdog) watch() {
 	if period == 0 {
 		period = 10
 	}
-	log.Printf("will write changed partitions every %v seconds\r\n", period)
+	fmt.Printf("will write changed partitions every %v seconds\r\n", period)
 	for {
 		w.writeAllBlocks()
 		time.Sleep(time.Duration(period) * time.Second)

@@ -2,7 +2,6 @@ package store
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
 )
@@ -12,7 +11,7 @@ func (s *Store) ScanForExpiredKeys(scanPeriod int) {
 	if scanPeriod == 0 {
 		scanPeriod = 30
 	}
-	log.Printf("will scan for expired keys every %v seconds\r\n", scanPeriod)
+	fmt.Printf("will scan for expired keys every %v seconds\r\n", scanPeriod)
 	for {
 		for _, part := range s.Parts {
 			wg := new(sync.WaitGroup)
@@ -27,7 +26,6 @@ func (s *Store) ScanForExpiredKeys(scanPeriod int) {
 						}
 						expires := time.Unix(slot.Expires, 0)
 						if time.Now().After(expires) {
-							fmt.Println("expired")
 							block.Mutex.RUnlock()
 							block.Mutex.Lock()
 							delete(block.Slots, k)
