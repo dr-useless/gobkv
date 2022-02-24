@@ -1,20 +1,21 @@
 package store
 
 import (
+	"fmt"
 	"log"
 	"sync"
 	"time"
 )
 
 // Delete expired keys
-func (s *Store) ScanForExpiredKeys(cfg *PartConfig, scanPeriod int) {
+func (s *Store) ScanForExpiredKeys(scanPeriod int) {
 	if scanPeriod == 0 {
 		scanPeriod = 30
 	}
 	log.Printf("will scan for expired keys every %v seconds\r\n", scanPeriod)
-	wg := new(sync.WaitGroup)
 	for {
 		for _, part := range s.Parts {
+			wg := new(sync.WaitGroup)
 			for _, block := range part.Blocks {
 				wg.Add(1)
 				go func(block *Block, dir string) {
@@ -24,8 +25,9 @@ func (s *Store) ScanForExpiredKeys(cfg *PartConfig, scanPeriod int) {
 						if slot.Expires == 0 {
 							continue
 						}
-						expires := time.Unix(int64(slot.Expires), 0)
+						expires := time.Unix(slot.Expires, 0)
 						if time.Now().After(expires) {
+							fmt.Println("expired")
 							block.Mutex.RUnlock()
 							block.Mutex.Lock()
 							delete(block.Slots, k)

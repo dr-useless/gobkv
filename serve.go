@@ -33,7 +33,7 @@ loop:
 		default:
 			if !authed {
 				respond(&mc, &protocol.Msg{
-					Status: protocol.StatusError,
+					Status: protocol.StatusUnauthorized,
 				})
 				break loop
 			}
@@ -81,10 +81,11 @@ func handleAuth(mc *chamux.MConn, msg *protocol.Msg, secret string) bool {
 func handleGet(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
 	slot := st.Get(msg.Key)
 	if slot == nil {
-		respondWithStatus(mc, protocol.StatusError)
+		respondWithStatus(mc, protocol.StatusNotFound)
 		return
 	}
 	respond(mc, &protocol.Msg{
+		Status:  protocol.StatusOk,
 		Key:     msg.Key,
 		Value:   slot.Value,
 		Expires: slot.Expires,

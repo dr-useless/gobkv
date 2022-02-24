@@ -131,7 +131,7 @@ func (s *Store) EnsureBlocks(cfg *PartConfig) {
 		manifest := make(protocol.Manifest, 0)
 		err := gob.NewDecoder(manifestFile).Decode(&manifest)
 		if err != nil {
-			log.Fatalf("failed to decode part list: %s", err)
+			log.Fatalf("failed to decode manifest: %s", err)
 		}
 		for _, partManifest := range manifest {
 			part := Part{
@@ -147,7 +147,8 @@ func (s *Store) EnsureBlocks(cfg *PartConfig) {
 			}
 			s.Parts[getNumber(part.Id)] = &part
 		}
-		log.Printf("initialised %v parts from list\r\n", len(s.Parts))
+		blockCount := len(s.Parts) * len(s.Parts)
+		log.Printf("initialised %v blocks from manifest\r\n", blockCount)
 	}
 }
 

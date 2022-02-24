@@ -66,3 +66,23 @@ func (c *Client) Auth(secret string) error {
 	frame := chamux.NewFrame(msgEnc, MSG)
 	return c.mconn.Publish(frame)
 }
+
+func (c *Client) Set(key string, value []byte, expires int64) error {
+	return c.set(key, value, expires, false)
+}
+
+func (c *Client) SetAck(key string, value []byte, expires int64) error {
+	return c.set(key, value, expires, true)
+}
+
+func (c *Client) Get(key string) error {
+	msgEnc, err := protocol.EncodeMsg(&protocol.Msg{
+		Op:  protocol.OpGet,
+		Key: key,
+	})
+	if err != nil {
+		return err
+	}
+	frame := chamux.NewFrame(msgEnc, MSG)
+	return c.mconn.Publish(frame)
+}
