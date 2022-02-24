@@ -5,7 +5,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/dr-useless/gobkv/store"
+	"github.com/intob/gobkv/store"
 )
 
 type Config struct {
@@ -15,10 +15,8 @@ type Config struct {
 	KeyFile          string
 	AuthSecret       string
 	Parts            store.PartConfig
-	Dir              string // storage dir for parts & repl
+	Dir              string // storage dir for blocks
 	ExpiryScanPeriod int    // seconds
-	ReplMasterConfig store.ReplMasterConfig
-	ReplClientConfig store.ReplClientConfig
 }
 
 func (c *Config) validate() error {

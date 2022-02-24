@@ -14,30 +14,32 @@ func (s *Store) ScanForExpiredKeys(cfg *PartConfig, scanPeriod int) {
 	log.Printf("will scan for expired keys every %v seconds\r\n", scanPeriod)
 	wg := new(sync.WaitGroup)
 	for {
-		for partName, part := range s.Parts {
-			wg.Add(1)
-			go func(part *Part, partName string, partDir string) {
-				defer wg.Done()
-				part.Mutex.RLock()
-				for k, slot := range part.Slots {
-					if slot.Expires == 0 {
-						continue
+		for _, part := range s.Parts {
+			for _, block := range part.Blocks {
+				wg.Add(1)
+				go func(block *Block, dir string) {
+					defer wg.Done()
+					block.Mutex.RLock()
+					for k, slot := range block.Slots {
+						if slot.Expires == 0 {
+							continue
+						}
+						expires := time.Unix(int64(slot.Expires), 0)
+						if time.Now().After(expires) {
+							block.Mutex.RUnlock()
+							block.Mutex.Lock()
+							delete(block.Slots, k)
+							block.MustWrite = true
+							block.Mutex.Unlock()
+							block.Mutex.RLock()
+						}
 					}
-					expires := time.Unix(int64(slot.Expires), 0)
-					if time.Now().After(expires) {
-						part.Mutex.RUnlock()
-						part.Mutex.Lock()
-						delete(part.Slots, k)
-						part.MustWrite = true
-						part.Mutex.Unlock()
-						part.Mutex.RLock()
-					}
-				}
-				part.Mutex.RUnlock()
-				part.WriteToFile(partName, s.Dir)
-			}(part, partName, s.Dir)
+					block.Mutex.RUnlock()
+					block.WriteToFile(dir)
+				}(block, s.Dir)
+			}
+			wg.Wait()
+			time.Sleep(time.Duration(scanPeriod) * time.Second)
 		}
-		wg.Wait()
-		time.Sleep(time.Duration(scanPeriod) * time.Second)
 	}
 }

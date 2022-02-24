@@ -1,46 +1,41 @@
 package main
 
 import (
-	"log"
 	"net"
-	"time"
 
-	"github.com/dr-useless/gobkv/protocol"
-	"github.com/dr-useless/gobkv/store"
+	"github.com/intob/chamux"
+	"github.com/intob/gobkv/protocol"
+	"github.com/intob/gobkv/store"
 )
 
-const BACKOFF = 10        // ms
-const BACKOFF_LIMIT = 100 // ms
+const MSG = "msg"
 
-// Listens for requests
-// & sends response
 func serveConn(conn net.Conn, st *store.Store, authSecret string) {
-	backoff := BACKOFF // ms
 	authed := authSecret == ""
+	mc := chamux.NewMConn(conn, chamux.Gob{}, 2048)
+	msgTopic := chamux.NewTopic(MSG)
+	msgSub := msgTopic.Subscribe()
+	mc.AddTopic(&msgTopic)
 loop:
-	for {
-		msg, err := protocol.ReadMsgFrom(conn)
+	for mBytes := range msgSub {
+		msg := &protocol.Msg{}
+		err := msg.DecodeFrom(mBytes)
 		if err != nil {
-			if backoff > BACKOFF_LIMIT {
-				respondWithStatus(conn, protocol.StatusError)
-				log.Println("conn timed out:", err)
-				break
-			}
-			time.Sleep(time.Duration(backoff) * time.Millisecond)
-			backoff *= 2
-			continue
+			panic(err)
 		}
 
 		switch msg.Op {
 		case protocol.OpPing:
-			handlePing(conn)
+			handlePing(&mc)
 			continue
 		case protocol.OpAuth:
-			authed = handleAuth(conn, msg, authSecret)
+			authed = handleAuth(&mc, msg, authSecret)
 			continue
 		default:
 			if !authed {
-				respondWithStatus(conn, protocol.StatusUnauthorized)
+				respond(&mc, protocol.Msg{
+					Status: protocol.StatusError,
+				})
 				break loop
 			}
 		}
@@ -48,17 +43,17 @@ loop:
 		// requires auth
 		switch msg.Op {
 		case protocol.OpGet:
-			handleGet(conn, msg, st)
+			handleGet(&mc, msg, st)
 		case protocol.OpSet:
-			handleSet(conn, msg, st)
+			handleSet(&mc, msg, st)
 		case protocol.OpSetAck:
-			handleSet(conn, msg, st)
+			handleSet(&mc, msg, st)
 		case protocol.OpDel:
-			handleDel(conn, msg, st)
+			handleDel(&mc, msg, st)
 		case protocol.OpDelAck:
-			handleDel(conn, msg, st)
+			handleDel(&mc, msg, st)
 		case protocol.OpList:
-			handleList(conn, msg, st)
+			handleList(&mc, msg, st)
 		case protocol.OpClose:
 			break loop
 		}
@@ -67,109 +62,70 @@ loop:
 	conn.Close()
 }
 
-func handlePing(conn net.Conn) {
-	resp := protocol.Msg{
+func handlePing(mc *chamux.MConn) {
+	respond(mc, protocol.Msg{
 		Op:     protocol.OpPong,
 		Status: protocol.StatusOk,
-	}
-	resp.WriteTo(conn)
+	})
 }
 
-func handleAuth(conn net.Conn, msg *protocol.Msg, secret string) bool {
-	given := string(msg.Body)
-	authed := given == secret
+func handleAuth(mc *chamux.MConn, msg *protocol.Msg, secret string) bool {
+	authed := msg.Key == secret
 	if authed {
-		respondWithStatus(conn, protocol.StatusOk)
+		respondWithStatus(mc, protocol.StatusOk)
 	} else {
-		respondWithStatus(conn, protocol.StatusUnauthorized)
+		respondWithStatus(mc, protocol.StatusError)
 	}
 	return authed
 }
 
-func handleGet(conn net.Conn, msg *protocol.Msg, st *store.Store) {
-	req := protocol.Data{}
-	err := req.DecodeFrom(msg.Body)
-	if err != nil {
-		respondWithStatus(conn, protocol.StatusError)
-		return
-	}
-	slot := st.Get(req.Key)
+func handleGet(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
+	slot := st.Get(msg.Key)
 	if slot == nil {
-		respondWithStatus(conn, protocol.StatusNotFound)
+		respondWithStatus(mc, protocol.StatusError)
 		return
 	}
-	resp := protocol.Data{
-		Key:     req.Key,
+	respond(mc, protocol.Msg{
+		Key:     msg.Key,
 		Value:   slot.Value,
 		Expires: slot.Expires,
-	}
-	body, _ := resp.Encode()
-	respMsg := protocol.Msg{
-		Op:     protocol.OpGet,
-		Status: protocol.StatusOk,
-		Body:   body,
-	}
-	respMsg.WriteTo(conn)
+	})
 }
 
-func handleSet(conn net.Conn, msg *protocol.Msg, st *store.Store) {
-	req := protocol.Data{}
-	err := req.DecodeFrom(msg.Body)
-	if err != nil {
-		respondWithStatus(conn, protocol.StatusError)
-		return
-	}
+func handleSet(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
 	slot := store.Slot{
-		Value:   req.Value,
-		Expires: req.Expires,
+		Value:   msg.Value,
+		Expires: msg.Expires,
 	}
-	st.Set(req.Key, &slot)
+	st.Set(msg.Key, &slot)
 	if msg.Op == protocol.OpSetAck {
-		respondWithStatus(conn, protocol.StatusOk)
+		respondWithStatus(mc, protocol.StatusOk)
 	}
 }
 
-func handleDel(conn net.Conn, msg *protocol.Msg, st *store.Store) {
-	req := protocol.Data{}
-	err := req.DecodeFrom(msg.Body)
-	if err != nil {
-		respondWithStatus(conn, protocol.StatusError)
-		return
-	}
-	st.Del(req.Key)
+func handleDel(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
+	st.Del(msg.Key)
 	if msg.Op == protocol.OpDelAck {
-		respondWithStatus(conn, protocol.StatusOk)
+		respondWithStatus(mc, protocol.StatusOk)
 	}
 }
 
-// TODO: add ability to stream unknown length,
-// then stream keys as they are found (buffered)
-func handleList(conn net.Conn, msg *protocol.Msg, st *store.Store) {
-	req := protocol.Data{}
-	err := req.DecodeFrom(msg.Body)
-	if err != nil {
-		respondWithStatus(conn, protocol.StatusError)
-		return
-	}
-	resp := protocol.Data{
-		Keys: st.List(req.Key),
-	}
-	body, err := resp.Encode()
-	if err != nil {
-		respondWithStatus(conn, protocol.StatusError)
-		return
-	}
-	respMsg := protocol.Msg{
-		Op:     protocol.OpList,
-		Status: protocol.StatusOk,
-		Body:   body,
-	}
-	respMsg.WriteTo(conn)
+func handleList(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
+	respond(mc, protocol.Msg{
+		Keys: st.List(msg.Key),
+	})
 }
 
-func respondWithStatus(conn net.Conn, status byte) {
-	resp := protocol.Msg{
+func respond(mc *chamux.MConn, resp protocol.Msg) {
+	respEnc, err := resp.Encode()
+	if err != nil {
+		panic(err)
+	}
+	mc.Publish(chamux.NewFrame(respEnc, MSG))
+}
+
+func respondWithStatus(mc *chamux.MConn, status byte) {
+	respond(mc, protocol.Msg{
 		Status: status,
-	}
-	resp.WriteTo(conn)
+	})
 }

@@ -11,6 +11,7 @@ const (
 	OpDel    byte = 0x40
 	OpDelAck byte = 0x41
 	OpList   byte = 0x50
+	OpBlock  byte = 0x60
 )
 
 type Label map[byte]string
@@ -27,5 +28,6 @@ func MapOp() Label {
 		OpDel:    "DEL",
 		OpDelAck: "DEL_ACK",
 		OpList:   "LIST",
+		OpBlock:  "BLOCK",
 	}
 }

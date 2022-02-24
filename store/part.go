@@ -4,18 +4,26 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/gob"
 	"hash/fnv"
 	"log"
 	"os"
 	"path"
 	"sync"
+
+	"github.com/intob/gobkv/protocol"
 )
 
-const listFileName = "parts.gob"
-const hashLen = 4
+const manifestFileName = "manifest.gob"
+const idLen = 8
 
 type Part struct {
+	Id     []byte
+	Blocks map[uint64]*Block
+}
+
+type Block struct {
 	Id        []byte
 	Mutex     *sync.RWMutex
 	Slots     map[string]*Slot
@@ -34,80 +42,47 @@ type PartConfig struct {
 	WritePeriod int // seconds
 }
 
-func (part *Part) WriteToFile(partName, dir string) {
-	if !part.MustWrite {
+// Returns checksum of all slot values
+// For now, only sum Value (not Expires)
+func (b *Block) Checksum() []byte {
+	h := fnv.New128a()
+	b.Mutex.RLock()
+	for _, slot := range b.Slots {
+		h.Write(slot.Value)
+	}
+	defer b.Mutex.RUnlock()
+	return h.Sum(nil)
+}
+
+func (b *Block) WriteToFile(dir string) {
+	if !b.MustWrite {
 		return
 	}
-	fullPath := path.Join(dir, partName+".gob")
+	name := getName(b.Id)
+	fullPath := path.Join(dir, name+".gob")
 	file, err := os.Create(fullPath)
 	if err != nil {
 		log.Fatalf("failed to create part file: %s\r\n", err)
 	}
-	part.Mutex.RLock()
-	gob.NewEncoder(file).Encode(&part.Slots)
-	part.MustWrite = false
-	part.Mutex.RUnlock()
+	b.Mutex.RLock()
+	gob.NewEncoder(file).Encode(&b.Slots)
+	b.MustWrite = false
+	b.Mutex.RUnlock()
 	file.Close()
 }
 
-// ensures that part files exist
-func (s *Store) EnsureParts(cfg *PartConfig) {
-	if !cfg.Persist {
-		return
-	}
-	s.Parts = make(map[string]*Part)
-	listPath := path.Join(s.Dir, listFileName)
-	listFile, err := os.Open(listPath)
-	if err != nil {
-		log.Println("no part list found, will create...")
-		// make new list
-		for i := 0; i < cfg.Count; i++ {
-			partId := make([]byte, hashLen)
-			rand.Read(partId)
-			partName := getPartName(partId)
-			s.Parts[partName] = &Part{
-				Id:    partId,
-				Mutex: new(sync.RWMutex),
-				Slots: make(map[string]*Slot),
-			}
-		}
-		newListFile, err := os.Create(listPath)
-		if err != nil {
-			log.Fatalf("failed to create part list, check directory exists: %s", s.Dir)
-		}
-		partNameList := s.getPartNameList()
-		gob.NewEncoder(newListFile).Encode(partNameList)
-	} else {
-		// decode list
-		nameList := make([]string, 0)
-		err := gob.NewDecoder(listFile).Decode(&nameList)
-		if err != nil {
-			log.Fatalf("failed to decode part list: %s", err)
-		}
-		for _, name := range nameList {
-			id, _ := getPartId(name)
-			s.Parts[name] = &Part{
-				Id:    id,
-				Mutex: new(sync.RWMutex),
-				Slots: make(map[string]*Slot),
-			}
-		}
-		log.Printf("initialised %v parts from list\r\n", len(s.Parts))
-	}
-}
-
-func (p *Part) ReadFromFile(wg *sync.WaitGroup, dir string) {
-	p.Mutex.Lock()
-	defer p.Mutex.Unlock()
+func (b *Block) ReadFromFile(wg *sync.WaitGroup, dir string) {
+	b.Mutex.Lock()
+	defer b.Mutex.Unlock()
 	defer wg.Done()
-	name := getPartName(p.Id)
+	name := getName(b.Id)
 	fullPath := path.Join(dir, name+".gob")
 	file, err := os.Open(fullPath)
 	if err != nil {
-		//log.Printf("failed to open partition %s\r\n", name)
 		return
 	}
-	err = gob.NewDecoder(file).Decode(&p.Slots)
+	err = gob.NewDecoder(file).Decode(&b.Slots)
+	file.Close()
 	if err != nil {
 		log.Printf("failed to decode data in partition %s\r\n", name)
 		return
@@ -115,34 +90,91 @@ func (p *Part) ReadFromFile(wg *sync.WaitGroup, dir string) {
 	log.Printf("read from partition %s", name)
 }
 
-func (s *Store) getClosestPart(key string) *Part {
-	h := fnv.New32a()
+// ensures that part files exist
+func (s *Store) EnsureBlocks(cfg *PartConfig) {
+	if !cfg.Persist {
+		return
+	}
+	s.Parts = make(map[uint64]*Part)
+	manifestPath := path.Join(s.Dir, manifestFileName)
+	manifestFile, err := os.Open(manifestPath)
+	if err != nil {
+		log.Println("no manifest found, will create...")
+		// parts
+		for p := 0; p < cfg.Count; p++ {
+			partId := make([]byte, idLen)
+			rand.Read(partId)
+			part := &Part{
+				Id:     partId,
+				Blocks: make(map[uint64]*Block),
+			}
+			// blocks
+			for b := 0; b < cfg.Count; b++ {
+				blockId := make([]byte, idLen)
+				rand.Read(blockId)
+				part.Blocks[getNumber(blockId)] = &Block{
+					Id:    blockId,
+					Mutex: new(sync.RWMutex),
+					Slots: make(map[string]*Slot),
+				}
+			}
+			s.Parts[getNumber(partId)] = part
+		}
+		newManifestFile, err := os.Create(manifestPath)
+		if err != nil {
+			log.Fatalf("failed to create manifest, check directory exists: %s", s.Dir)
+		}
+		manifest := s.getManifest()
+		gob.NewEncoder(newManifestFile).Encode(manifest)
+	} else {
+		// decode list
+		manifest := make(protocol.Manifest, 0)
+		err := gob.NewDecoder(manifestFile).Decode(&manifest)
+		if err != nil {
+			log.Fatalf("failed to decode part list: %s", err)
+		}
+		for _, partManifest := range manifest {
+			part := Part{
+				Id:     partManifest.PartId,
+				Blocks: make(map[uint64]*Block),
+			}
+			for _, block := range partManifest.Blocks {
+				part.Blocks[getNumber(block.BlockId)] = &Block{
+					Id:    block.BlockId,
+					Mutex: new(sync.RWMutex),
+					Slots: make(map[string]*Slot),
+				}
+			}
+			s.Parts[getNumber(part.Id)] = &part
+		}
+		log.Printf("initialised %v parts from list\r\n", len(s.Parts))
+	}
+}
+
+func (p *Part) getClosestBlock(key string) *Block {
+	h := fnv.New64a()
 	h.Write([]byte(key))
 	keyHash := h.Sum(nil)
-	var clPart *Part
+	var clBlock *Block
 	var clD []byte
-	for _, part := range s.Parts {
-		d := xorBytes(part.Id, keyHash)
+	for _, block := range p.Blocks {
+		d := xorBytes(block.Id, keyHash)
 		if clD == nil || bytes.Compare(d, clD) < 0 {
-			clPart = part
+			clBlock = block
 			clD = d
 		}
 	}
-	return clPart
+	return clBlock
 }
 
-func (s *Store) getPartNameList() []string {
-	list := make([]string, 0)
-	for name := range s.Parts {
-		list = append(list, name)
-	}
-	return list
+func getName(id []byte) string {
+	return base64.RawURLEncoding.EncodeToString(id)
 }
 
-func getPartName(partId []byte) string {
-	return base64.RawURLEncoding.EncodeToString(partId)
-}
+/*func getId(name string) ([]byte, error) {
+	return base64.RawURLEncoding.DecodeString(name)
+}*/
 
-func getPartId(partName string) ([]byte, error) {
-	return base64.RawURLEncoding.DecodeString(partName)
+func getNumber(id []byte) uint64 {
+	return binary.BigEndian.Uint64(id)
 }

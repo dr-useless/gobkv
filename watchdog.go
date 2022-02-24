@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dr-useless/gobkv/store"
+	"github.com/intob/gobkv/store"
 )
 
 type Watchdog struct {
@@ -25,25 +25,29 @@ func (w *Watchdog) watch() {
 	}
 	log.Printf("will write changed partitions every %v seconds\r\n", period)
 	for {
-		w.writeAllParts()
+		w.writeAllBlocks()
 		time.Sleep(time.Duration(period) * time.Second)
 	}
 }
 
-func (w *Watchdog) writeAllParts() {
-	for name, part := range w.store.Parts {
-		part.WriteToFile(name, w.cfg.Dir)
+func (w *Watchdog) writeAllBlocks() {
+	for _, part := range w.store.Parts {
+		for _, block := range part.Blocks {
+			block.WriteToFile(w.cfg.Dir)
+		}
 	}
 }
 
-func (w *Watchdog) readFromPartFiles() {
+func (w *Watchdog) readFromBlockFiles() {
 	if !w.cfg.Parts.Persist {
 		return
 	}
-	wg := new(sync.WaitGroup)
 	for _, part := range w.store.Parts {
-		wg.Add(1)
-		go part.ReadFromFile(wg, w.cfg.Dir)
+		wg := new(sync.WaitGroup)
+		for _, block := range part.Blocks {
+			wg.Add(1)
+			go block.ReadFromFile(wg, w.cfg.Dir)
+		}
+		wg.Wait()
 	}
-	wg.Wait()
 }

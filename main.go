@@ -7,7 +7,8 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/dr-useless/gobkv/store"
+	"github.com/intob/gobkv/service"
+	"github.com/intob/gobkv/store"
 )
 
 var configFile = flag.String("c", "", "must be a file path")
@@ -23,32 +24,17 @@ func main() {
 	st := store.Store{
 		Dir: cfg.Dir,
 	}
-	st.EnsureParts(&cfg.Parts)
+	st.EnsureBlocks(&cfg.Parts)
 	go st.ScanForExpiredKeys(&cfg.Parts, cfg.ExpiryScanPeriod)
-
-	// if ReplServer is defined, start as master
-	if cfg.ReplMasterConfig.Address != "" {
-		log.Println("configured as master")
-		replMaster := store.ReplMaster{}
-		go replMaster.Init(&cfg.ReplMasterConfig)
-		st.ReplMaster = &replMaster
-	} else if cfg.ReplClientConfig.Address != "" {
-		log.Println("configured as replica")
-		replClient := store.ReplClient{
-			Dir: cfg.Dir,
-		}
-		replClient.Store = &st
-		replClient.Init(&cfg.ReplClientConfig)
-	}
 
 	watchdog := Watchdog{
 		store: &st,
 		cfg:   &cfg,
 	}
 	// blocks until parts are ready
-	watchdog.readFromPartFiles()
+	watchdog.readFromBlockFiles()
 
-	listener, err := store.GetListener(
+	listener, err := service.GetListener(
 		cfg.Network, cfg.Address, cfg.CertFile, cfg.KeyFile)
 	if err != nil {
 		log.Fatal(err)
@@ -73,7 +59,7 @@ func waitForSigInt(listener net.Listener, w *Watchdog) {
 	for range c {
 		log.Println("will exit cleanly")
 		listener.Close()
-		w.writeAllParts()
+		w.writeAllBlocks()
 		os.Exit(0)
 	}
 }
