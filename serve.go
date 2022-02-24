@@ -4,16 +4,15 @@ import (
 	"net"
 
 	"github.com/intob/chamux"
+	"github.com/intob/gobkv/client"
 	"github.com/intob/gobkv/protocol"
 	"github.com/intob/gobkv/store"
 )
 
-const MSG = "msg"
-
 func serveConn(conn net.Conn, st *store.Store, authSecret string) {
 	authed := authSecret == ""
 	mc := chamux.NewMConn(conn, chamux.Gob{}, 2048)
-	msgTopic := chamux.NewTopic(MSG)
+	msgTopic := chamux.NewTopic(client.MSG)
 	msgSub := msgTopic.Subscribe()
 	mc.AddTopic(&msgTopic)
 loop:
@@ -73,7 +72,7 @@ func handleAuth(mc *chamux.MConn, msg *protocol.Msg, secret string) bool {
 	if authed {
 		respondWithStatus(mc, protocol.StatusOk)
 	} else {
-		respondWithStatus(mc, protocol.StatusError)
+		respondWithStatus(mc, protocol.StatusUnauthorized)
 	}
 	return authed
 }
@@ -112,7 +111,8 @@ func handleDel(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
 
 func handleList(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
 	respond(mc, &protocol.Msg{
-		Keys: st.List(msg.Key),
+		Status: protocol.StatusOk,
+		Keys:   st.List(msg.Key),
 	})
 }
 
@@ -121,7 +121,7 @@ func respond(mc *chamux.MConn, resp *protocol.Msg) {
 	if err != nil {
 		panic(err)
 	}
-	mc.Publish(chamux.NewFrame(respEnc, MSG))
+	mc.Publish(chamux.NewFrame(respEnc, client.MSG))
 }
 
 func respondWithStatus(mc *chamux.MConn, status byte) {

@@ -18,6 +18,10 @@ type Client struct {
 	MsgChan chan protocol.Msg
 }
 
+// Returns a pointer to a new Client,
+// with topics, subscriptions & an output channel
+// made ready.
+// Messages can be receieved on MsgChan.
 func NewClient(conn net.Conn) *Client {
 	mc := chamux.NewMConn(conn, chamux.Gob{}, 2048)
 	c := &Client{
@@ -31,6 +35,7 @@ func NewClient(conn net.Conn) *Client {
 	return c
 }
 
+// Decodes & writes messages to output chan
 func (c *Client) pumpMsgs() {
 	for mBytes := range c.msgSub {
 		msg, err := protocol.DecodeMsg(mBytes)
@@ -41,10 +46,8 @@ func (c *Client) pumpMsgs() {
 	}
 }
 
-func (c *Client) Ping() error {
-	msgEnc, err := protocol.EncodeMsg(&protocol.Msg{
-		Op: protocol.OpPing,
-	})
+func (c *Client) encodeAndPublish(msg *protocol.Msg) error {
+	msgEnc, err := protocol.EncodeMsg(msg)
 	if err != nil {
 		return err
 	}
@@ -52,37 +55,81 @@ func (c *Client) Ping() error {
 	return c.mconn.Publish(frame)
 }
 
+// Sends a ping message
+//
+// A status message will follow
+func (c *Client) Ping() error {
+	return c.encodeAndPublish(&protocol.Msg{
+		Op: protocol.OpPing,
+	})
+}
+
+// Authenticate using the given secret
+//
+// A status message will follow
 func (c *Client) Auth(secret string) error {
 	if secret == "" {
 		return errors.New(PF + "secret is empty")
 	}
-	msgEnc, err := protocol.EncodeMsg(&protocol.Msg{
+	msg := &protocol.Msg{
 		Op:  protocol.OpAuth,
 		Key: secret,
-	})
-	if err != nil {
-		return err
 	}
-	frame := chamux.NewFrame(msgEnc, MSG)
-	return c.mconn.Publish(frame)
+	return c.encodeAndPublish(msg)
 }
 
-func (c *Client) Set(key string, value []byte, expires int64) error {
-	return c.set(key, value, expires, false)
+// Sets the value & expires properties of the key
+//
+// If expires is 0, the key will not expire
+// If ack is true, a response will follow
+func (c *Client) Set(key string, value []byte, expires int64, ack bool) error {
+	if expires < 0 {
+		return errors.New(PF + "expires should be 0 or positive")
+	}
+	if key == "" {
+		return errors.New(PF + "key must not be empty")
+	}
+	msg := &protocol.Msg{
+		Op:    protocol.OpSet,
+		Key:   key,
+		Value: value,
+	}
+	if ack {
+		msg.Op = protocol.OpSetAck
+	}
+	return c.encodeAndPublish(msg)
 }
 
-func (c *Client) SetAck(key string, value []byte, expires int64) error {
-	return c.set(key, value, expires, true)
-}
-
+// Get the value & expires time for a key
+//
+// The response will follow on the MsgChan
 func (c *Client) Get(key string) error {
-	msgEnc, err := protocol.EncodeMsg(&protocol.Msg{
+	msg := &protocol.Msg{
 		Op:  protocol.OpGet,
 		Key: key,
-	})
-	if err != nil {
-		return err
 	}
-	frame := chamux.NewFrame(msgEnc, MSG)
-	return c.mconn.Publish(frame)
+	return c.encodeAndPublish(msg)
+}
+
+// Delete a key
+//
+// If ack is true, a status response will follow
+func (c *Client) Del(key string, ack bool) error {
+	msg := &protocol.Msg{
+		Op:  protocol.OpDel,
+		Key: key,
+	}
+	if ack {
+		msg.Op = protocol.OpDelAck
+	}
+	return c.encodeAndPublish(msg)
+}
+
+// List all keys with the given prefix
+func (c *Client) List(key string) error {
+	msg := &protocol.Msg{
+		Op:  protocol.OpList,
+		Key: key,
+	}
+	return c.encodeAndPublish(msg)
 }
