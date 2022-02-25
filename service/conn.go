@@ -6,6 +6,9 @@ import (
 	"net"
 )
 
+// Get a connection with/without TLS
+//
+// TODO: remove InsecureSkipVerify from tls.Config
 func GetConn(network, address, certFile, keyFile string) (net.Conn, error) {
 	if certFile == "" {
 		conn, err := net.Dial(network, address)
@@ -21,8 +24,7 @@ func GetConn(network, address, certFile, keyFile string) (net.Conn, error) {
 			return nil, err
 		}
 		config := tls.Config{
-			Certificates:       []tls.Certificate{cert},
-			InsecureSkipVerify: true,
+			Certificates: []tls.Certificate{cert},
 		}
 		// return client on tls connection
 		conn, err := tls.Dial(network, address, &config)

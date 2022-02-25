@@ -8,7 +8,10 @@ import (
 	"github.com/intob/gobkv/protocol"
 )
 
-const PF = "gobkv: "
+const ErrEmptySecret = "secret is empty"
+const ErrNegativeExpiry = "expires should be 0 or positive"
+const ErrEmptyKey = "key must not be empty"
+
 const MSG = "msg"
 
 type Client struct {
@@ -75,7 +78,7 @@ func (c *Client) Ping() error {
 // A status message will follow
 func (c *Client) Auth(secret string) error {
 	if secret == "" {
-		return errors.New(PF + "secret is empty")
+		return errors.New(ErrEmptySecret)
 	}
 	msg := &protocol.Msg{
 		Op:  protocol.OpAuth,
@@ -90,10 +93,10 @@ func (c *Client) Auth(secret string) error {
 // If ack is true, a response will follow
 func (c *Client) Set(key string, value []byte, expires int64, ack bool) error {
 	if expires < 0 {
-		return errors.New(PF + "expires should be 0 or positive")
+		return errors.New(ErrNegativeExpiry)
 	}
 	if key == "" {
-		return errors.New(PF + "key must not be empty")
+		return errors.New(ErrEmptyKey)
 	}
 	msg := &protocol.Msg{
 		Op:    protocol.OpSet,

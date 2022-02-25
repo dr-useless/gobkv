@@ -78,8 +78,8 @@ func handleAuth(mc *chamux.MConn, msg *protocol.Msg, secret string) bool {
 }
 
 func handleGet(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
-	slot := st.Get(msg.Key)
-	if slot.Modified == 0 {
+	slot, found := st.Get(msg.Key)
+	if !found {
 		respondWithStatus(mc, protocol.StatusNotFound)
 		return
 	}

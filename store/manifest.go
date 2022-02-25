@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"sync"
 
 	"github.com/intob/gobkv/protocol"
+	"github.com/intob/gobkv/util"
 )
 
 type PartConfig struct {
@@ -29,21 +29,21 @@ func (s *Store) EnsureManifest(cfg *PartConfig) {
 		fmt.Println("no manifest found, will create...")
 		// parts
 		for p := 0; p < cfg.Count; p++ {
-			partId := make([]byte, KEY_HASH_LEN)
-			rand.Read(partId)
+			partId := make([]byte, util.ID_LEN)
+			_, err := rand.Read(partId)
+			if err != nil {
+				fmt.Println("failed to read from rand reader")
+				panic(err)
+			}
 			part := Part{
 				Id:     partId,
 				Blocks: make(map[uint64]*Block),
 			}
 			// blocks
 			for b := 0; b < cfg.Count; b++ {
-				blockId := make([]byte, KEY_HASH_LEN)
+				blockId := make([]byte, util.ID_LEN)
 				rand.Read(blockId)
-				part.Blocks[getNumber(blockId)] = &Block{
-					Id:    blockId,
-					Mutex: new(sync.RWMutex),
-					Slots: make(map[string]Slot),
-				}
+				part.Blocks[getNumber(blockId)] = NewBlock(blockId)
 			}
 			s.Parts[getNumber(partId)] = &part
 		}
@@ -68,11 +68,7 @@ func (s *Store) EnsureManifest(cfg *PartConfig) {
 				Blocks: make(map[uint64]*Block),
 			}
 			for _, block := range partManifest.Blocks {
-				part.Blocks[getNumber(block.BlockId)] = &Block{
-					Id:    block.BlockId,
-					Mutex: new(sync.RWMutex),
-					Slots: make(map[string]Slot),
-				}
+				part.Blocks[getNumber(block.BlockId)] = NewBlock(block.BlockId)
 			}
 			s.Parts[getNumber(part.Id)] = &part
 		}
