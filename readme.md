@@ -1,33 +1,37 @@
 gobkv
 -----
 
-# KV Storage over TCP, using Go's net/rpc package
 Minimalisic, highly performant key-value storage, written in Go.
 
 # Usage
-1. Install `go install github.com/dr-useless/gobkv`
+1. Install `go install github.com/intob/gobkv`
 2. (Optional) Define config.json (see configuration)
-3. Start `./gobkv -c config.json`
+3. Start `./gobkv -c cfg.json`
 
 ## Config
 ```json
 {
-  "Port": 8100,
-  "AuthSecret": "arandomstring",
+  "Network": "tcp",
+  "Address": "0.0.0.0:8100",
   "CertFile": "path/to/x509/cert.pem",
   "KeyFile": "path/to/x509/key.pem",
-  "Persist": true,
-  "PartCount": 10,
-  "PartDir": "parts",
-  "PartWritePeriod": 10,
-  "ExpiryScanPeriod": 10
+  "AuthSecret": "supersecretsecret,wait,it'sinthereadme",
+  "Dir": "/etc/gobkv",
+  "ExpiryScanPeriod": 10,
+  "Parts": {
+    "Count": 8,
+    "Persist": true,
+    "WritePeriod": 10
+  }
 }
 ```
-Unit of time is one second (for PartWritePeriod).
+For periords, unit of time is one second. I will add support for parsing time strings.
+
+For each part, the number of blocks created is equal to the part count. So, 8 parts will result in 64 blocks.
 
 ## Play
 1. Install CLI tool, gobler
-  `go install github.com/dr-useless/gobler`
+  `go install github.com/intob/gobler`
 2. Bind to your gobkv instance
   `gobler bind [NETWORK] [ADDRESS] --a [AUTHSECRET]`
 3. Call set, get, del, or list
@@ -46,39 +50,41 @@ beans
 - Test membership using Bloom filter before GET
 
 # Partitions
-To reduce load on the file system & and decrease blocking, the dataset is split across the configured number of partitions (parts). When a key is written to or deleted, the target partition is flagged as changed.
+To reduce load on the file system & and decrease blocking, the dataset is split across the configured number of partitions (parts).
 
-Watchdog periodically writes all changed parts to the file system.
+## Blocks
+Each part is split into blocks. The number of blocks in each part is equal to the number of parts. So 8 parts will result in 64 blocks.
 
-## Key:Partition mapping
-Distance from key to a partition is calculated as:
+Each block has it's own mutex & map of keys.
+
+When a key is written to or deleted, the parent block is flagged as changed.
+
+If persistence is enabled in the config via `"Parts.Persist": true`, then each block is written to the file system periodically, when changed.
+
+## Partition:Block:Key mapping
+Distance from key to a partition or block is calculated using Hamming distance.
 ```go
-d := hash(key) ^ partitionID
+d := hash(key) ^ blockId // or partId
 ```
-The `^` represents XOR.
+The lookup process goes as follows:
+1. Find closest part
+2. Find closest block in part
 
-Target partition ID is the one with smallest distance value.
+This 2-step approach scales well for large datasets where many blocks are desired to reduce blocking.
 
 ## Re-partitioning (to do)
 Each time the partition list is loaded, it must be compared to the configured partition count. If they do not match, a re-partitioning process must occur before serving connections.
 
-1. Create new partition list in sub-directory
+1. Create new manifest (partition:block list) in sub-directory
 2. Create new Store
 3. For each current part, re-map all keys to their new part
 4. Write each part after all keys are re-mapped
 
 # Key expiry
-The expires time is evaluated periodically in a separate goroutine. The period between scans can be configured using `ExpiryScanPeriod`, giving a number of seconds.
-
-The scan is done in a (mostly) non-blocking way. The partition's write lock is held only while deleting each expired key. Currently, this is done on a per-key basis for simplicity.
+The expires time is evaluated periodically. The period between scans can be configured using `ExpiryScanPeriod`, giving a number of seconds.
 
 # Protocol
 Framing & serialization is mostly handled by [chamux](https://github.com/intob/chamux).
-
-## Frame
-```
-<GOB ENCODED MSG>+END
-```
 
 ### Frame body
 The frame body is a Gob-encoded struct; `protocol.Msg`.
@@ -110,10 +116,11 @@ type Msg struct {
 ## Status codes
 | Byte | Rune | Meaning      |
 |------|------|--------------|
-| 0x21 | !    | Error        |
-| 0x2F | /    | Unauthorized |
-| 0x30 | 0    | NotFound     |
 | 0x5F | _    | OK           |
+| 0x2F | /    | StreamEnd    |
+| 0x2E | .    | NotFound     |
+| 0x21 | !    | Error        |
+| 0x23 | #    | Unauthorized |
 
 ## Endianness
-Big endian.
+Big endian
