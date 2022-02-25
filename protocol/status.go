@@ -1,13 +1,17 @@
 package protocol
 
 const (
-	StatusError byte = '!'
-	StatusOk    byte = '_'
+	StatusOk           byte = '_'
+	StatusError        byte = '!'
+	StatusUnauthorized byte = '#'
+	StatusNotFound     byte = '.'
 )
 
-func MapStatus() map[byte]string {
-	m := make(map[byte]string)
-	m[StatusOk] = "OK"
-	m[StatusError] = "ERROR"
-	return m
+func MapStatus() Label {
+	return Label{
+		StatusOk:           "OK",
+		StatusError:        "ERROR",
+		StatusUnauthorized: "UNATHORIZED",
+		StatusNotFound:     "NOT_FOUND",
+	}
 }

@@ -8,5 +8,5 @@
 *.pprof
 
 gobkv
-config.json
-parts/
+*.json
+state/

@@ -1,5 +1,7 @@
-# gobkv
-## KV Storage over TCP, using Go's net/rpc package
+gobkv
+-----
+
+# KV Storage over TCP, using Go's net/rpc package
 Minimalisic, highly performant key-value storage, written in Go.
 
 # Usage
@@ -11,31 +13,35 @@ Minimalisic, highly performant key-value storage, written in Go.
 ```json
 {
   "Port": 8100,
-  "AuthSecret": "a random string",
+  "AuthSecret": "arandomstring",
   "CertFile": "path/to/x509/cert.pem",
   "KeyFile": "path/to/x509/key.pem",
   "Persist": true,
   "PartCount": 10,
   "PartDir": "parts",
-  "PartWritePeriod": 10 // seconds
+  "PartWritePeriod": 10,
+  "ExpiryScanPeriod": 10
 }
 ```
+Unit of time is one second (for PartWritePeriod).
 
 ## Play
 1. Install CLI tool, gobler
   `go install github.com/dr-useless/gobler`
 2. Bind to your gobkv instance
-  `./gobler bind 127.0.0.1:8100 --auth [your_secret]`
-3. Call RPCs
+  `gobler bind [NETWORK] [ADDRESS] --a [AUTHSECRET]`
+3. Call set, get, del, or list
 ```bash
-./gobler set coffee life
-_
+./gobler set coffee beans
+status: OK
 ./gobler get coffee
-life
+beans
 ```
 
-# To do
+# In progress
 - Replication
+
+# To do
 - Re-partitioning
 - Test membership using Bloom filter before GET
 
@@ -45,13 +51,13 @@ To reduce load on the file system & and decrease blocking, the dataset is split 
 Watchdog periodically writes all changed parts to the file system.
 
 ## Key:Partition mapping
-Distance from key to partition is calculated as:
+Distance from key to a partition is calculated as:
 ```go
 d := hash(key) ^ partitionID
 ```
 The `^` represents XOR.
 
-Target partition ID is the one with smallest distance.
+Target partition ID is the one with smallest distance value.
 
 ## Re-partitioning (to do)
 Each time the partition list is loaded, it must be compared to the configured partition count. If they do not match, a re-partitioning process must occur before serving connections.
@@ -67,32 +73,47 @@ The expires time is evaluated periodically in a separate goroutine. The period b
 The scan is done in a (mostly) non-blocking way. The partition's write lock is held only while deleting each expired key. Currently, this is done on a per-key basis for simplicity.
 
 # Protocol
-## Message structure
+Framing & serialization is mostly handled by [chamux](https://github.com/intob/chamux).
+
+## Frame
 ```
-| 0             | 1             | 2             | 3             |
-|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|
-+---------------+---------------+---------------+---------------+
-| < OP        > | < STATUS    > | < KEY LEN UINT16            > |
-| < KEY EXPIRES UNIX INT64                                      |
-|                                                             > |
-| < VALUE LEN UINT64                                            |
-|                                                             > |
-  KEY ...                                                       
-  VALUE ...                                                     
+<GOB ENCODED MSG>+END
+```
+
+### Frame body
+The frame body is a Gob-encoded struct; `protocol.Msg`.
+```go
+type Msg struct {
+	Op      byte
+	Status  byte
+	Key     string
+	Value   []byte
+	Expires int64
+	Keys    []string
+}
 ```
 
 ## Op codes
 | Byte | Meaning |
 |------|---------|
-| 0x00 |         |
+| 0x01 | Close   |
+| 0x02 | Auth    |
 | 0x10 | Ping    |
+| 0x11 | Pong    |
 | 0x20 | Get     |
 | 0x30 | Set     |
+| 0x31 | SetAck  |
 | 0x40 | Del     |
+| 0x41 | DelAck  |
 | 0x50 | List    |
 
 ## Status codes
-| Byte | Rune | Meaning |
-|------|------|---------|
-| 0x21 | !    | Error   |
-| 0x5F | _    | OK      |
+| Byte | Rune | Meaning      |
+|------|------|--------------|
+| 0x21 | !    | Error        |
+| 0x2F | /    | Unauthorized |
+| 0x30 | 0    | NotFound     |
+| 0x5F | _    | OK           |
+
+## Endianness
+Big endian.

@@ -3,39 +3,37 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"os"
+
+	"github.com/intob/gobkv/store"
 )
 
 type Config struct {
-	Port             int
+	Network          string // tcp, unix etc...
+	Address          string // 0.0.0.0:8100
 	CertFile         string
 	KeyFile          string
 	AuthSecret       string
-	Persist          bool   // write data to file system
-	PartCount        int    // number of partitions
-	PartDir          string // directory for partition storage, default is ${pwd}/parts
-	PartWritePeriod  int    // seconds
+	Parts            store.PartConfig
+	Dir              string // storage dir for blocks
 	ExpiryScanPeriod int    // seconds
 }
 
 func (c *Config) validate() error {
-	if c.Persist {
-		if c.PartCount < 1 {
-			return errors.New("PartCount must be greater than 0")
-		}
+	if c.Network == "" || c.Address == "" {
+		return errors.New("network & address must not be blank")
+	}
+	if c.Parts.Persist && c.Parts.Count < 1 {
+		return errors.New("part count must be greater than 0")
 	}
 	return nil
 }
 
 func loadConfig() (Config, error) {
-	cfg := Config{
-		Port: 8100,
-	}
+	cfg := Config{}
 
 	if *configFile == "" {
-		log.Println("no config file defined, running with defaults")
-		return cfg, nil
+		return cfg, errors.New("no config file provided")
 	} else {
 		err := read(*configFile, &cfg)
 		if err != nil {
