@@ -26,7 +26,7 @@ func main() {
 	st := store.Store{
 		Dir: cfg.Dir,
 	}
-	st.EnsureBlocks(&cfg.Parts)
+	st.EnsureManifest(&cfg.Parts)
 	go st.ScanForExpiredKeys(cfg.ExpiryScanPeriod)
 
 	watchdog := Watchdog{

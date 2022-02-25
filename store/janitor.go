@@ -35,7 +35,6 @@ func (s *Store) ScanForExpiredKeys(scanPeriod int) {
 						}
 					}
 					block.Mutex.RUnlock()
-					block.WriteToFile(dir)
 				}(block, s.Dir)
 			}
 			wg.Wait()

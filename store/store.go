@@ -2,12 +2,11 @@ package store
 
 import (
 	"bytes"
-	"hash/fnv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/intob/gobkv/protocol"
+	"github.com/lukechampine/fastxor"
 )
 
 // Exported struct for net/rpc calls
@@ -19,8 +18,9 @@ type Store struct {
 
 // Get Slot for specified key
 // from appropriate partition
-func (s *Store) Get(key string) *Slot {
-	block := s.getClosestPart(key).getClosestBlock(key)
+func (s *Store) Get(key string) Slot {
+	h := hashKey(key)
+	block := s.getClosestPart(h).getClosestBlock(h)
 	block.Mutex.RLock()
 	defer block.Mutex.RUnlock()
 	return block.Slots[key]
@@ -28,9 +28,10 @@ func (s *Store) Get(key string) *Slot {
 
 // Set specified Slot
 // in appropriate block
-func (s *Store) Set(key string, slot *Slot) {
+func (s *Store) Set(key string, slot Slot) {
 	slot.Modified = time.Now().Unix()
-	block := s.getClosestPart(key).getClosestBlock(key)
+	h := hashKey(key)
+	block := s.getClosestPart(h).getClosestBlock(h)
 	block.Mutex.Lock()
 	block.Slots[key] = slot
 	block.MustWrite = true
@@ -40,7 +41,8 @@ func (s *Store) Set(key string, slot *Slot) {
 // Remove Slot with specified key
 // from appropriate partition
 func (s *Store) Del(key string) {
-	block := s.getClosestPart(key).getClosestBlock(key)
+	h := hashKey(key)
+	block := s.getClosestPart(h).getClosestBlock(h)
 	block.Mutex.Lock()
 	delete(block.Slots, key)
 	block.MustWrite = true
@@ -77,37 +79,19 @@ func (s *Store) List(prefix string) []string {
 	return keys
 }
 
-func (s *Store) getClosestPart(key string) *Part {
-	h := fnv.New64a()
-	h.Write([]byte(key))
-	keyHash := h.Sum(nil)
-	var clPart *Part
-	var clD []byte
-	for _, part := range s.Parts {
-		d := xorBytes(part.Id, keyHash)
-		if clD == nil || bytes.Compare(d, clD) < 0 {
-			clPart = part
-			clD = d
-		}
-	}
-	return clPart
-}
+func (s *Store) getClosestPart(keyHash []byte) *Part {
+	var clDist []byte // smallest distance value seen
+	var clPart *Part  // part with smallest distance
+	dist := make([]byte, KEY_HASH_LEN)
 
-func (s *Store) getManifest() *protocol.Manifest {
-	manifest := make(protocol.Manifest, 0)
+	// range through parts to find closest
 	for _, part := range s.Parts {
-		partManifest := protocol.PartManifest{
-			PartId: part.Id,
-			Blocks: make([]protocol.BlockManifest, 0),
+		fastxor.Bytes(dist, keyHash, part.Id)
+		if clDist == nil || bytes.Compare(dist, clDist) < 0 {
+			clPart = part
+			clDist = dist
 		}
-		for _, block := range part.Blocks {
-			blockManifest := protocol.BlockManifest{
-				BlockId: block.Id,
-				Hash:    block.Checksum(),
-			}
-			partManifest.Blocks = append(partManifest.Blocks, blockManifest)
-		}
-		manifest = append(manifest, partManifest)
 	}
-	return &manifest
+
+	return clPart
 }

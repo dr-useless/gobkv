@@ -79,7 +79,7 @@ func handleAuth(mc *chamux.MConn, msg *protocol.Msg, secret string) bool {
 
 func handleGet(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
 	slot := st.Get(msg.Key)
-	if slot == nil {
+	if slot.Modified == 0 {
 		respondWithStatus(mc, protocol.StatusNotFound)
 		return
 	}
@@ -96,7 +96,7 @@ func handleSet(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
 		Value:   msg.Value,
 		Expires: msg.Expires,
 	}
-	st.Set(msg.Key, &slot)
+	st.Set(msg.Key, slot)
 	if msg.Op == protocol.OpSetAck {
 		respondWithStatus(mc, protocol.StatusOk)
 	}

@@ -33,7 +33,9 @@ func (w *Watchdog) watch() {
 func (w *Watchdog) writeAllBlocks() {
 	for _, part := range w.store.Parts {
 		for _, block := range part.Blocks {
-			block.WriteToFile(w.cfg.Dir)
+			go func(b *store.Block) {
+				b.WriteToFile(w.cfg.Dir)
+			}(block)
 		}
 	}
 }

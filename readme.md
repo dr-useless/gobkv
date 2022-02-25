@@ -1,5 +1,7 @@
-# gobkv
-## KV Storage over TCP, using Go's net/rpc package
+gobkv
+-----
+
+# KV Storage over TCP, using Go's net/rpc package
 Minimalisic, highly performant key-value storage, written in Go.
 
 # Usage
@@ -71,14 +73,24 @@ The expires time is evaluated periodically in a separate goroutine. The period b
 The scan is done in a (mostly) non-blocking way. The partition's write lock is held only while deleting each expired key. Currently, this is done on a per-key basis for simplicity.
 
 # Protocol
-## Message structure
+Framing & serialization is mostly handled by [chamux](https://github.com/intob/chamux).
+
+## Frame
 ```
-| 0             | 1             | 2             | 3             |
-|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|
-+---------------+---------------+---------------+---------------+
-| < OP        > | < STATUS    > | < UNUSED                    > |
-| < GOB DATA LEN UINT32                                       > |
-  GOB DATA ...                                                     
+<GOB ENCODED MSG>+END
+```
+
+### Frame body
+The frame body is a Gob-encoded struct; `protocol.Msg`.
+```go
+type Msg struct {
+	Op      byte
+	Status  byte
+	Key     string
+	Value   []byte
+	Expires int64
+	Keys    []string
+}
 ```
 
 ## Op codes
