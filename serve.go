@@ -110,10 +110,12 @@ func handleDel(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
 }
 
 func handleList(mc *chamux.MConn, msg *protocol.Msg, st *store.Store) {
-	respond(mc, &protocol.Msg{
-		Status: protocol.StatusOk,
-		Keys:   st.List(msg.Key),
-	})
+	for k := range st.List(msg.Key, 100) {
+		respond(mc, &protocol.Msg{
+			Key: k,
+		})
+	}
+	respondWithStatus(mc, protocol.StatusStreamEnd)
 }
 
 func respond(mc *chamux.MConn, resp *protocol.Msg) {

@@ -12,7 +12,6 @@ type Msg struct {
 	Key     string
 	Value   []byte
 	Expires int64
-	Keys    []string
 }
 
 func DecodeMsg(b []byte) (*Msg, error) {

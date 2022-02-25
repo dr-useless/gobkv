@@ -2,16 +2,18 @@ package protocol
 
 const (
 	StatusOk           byte = '_'
+	StatusStreamEnd    byte = '/'
+	StatusNotFound     byte = '.'
 	StatusError        byte = '!'
 	StatusUnauthorized byte = '#'
-	StatusNotFound     byte = '.'
 )
 
 func MapStatus() Label {
 	return Label{
 		StatusOk:           "OK",
+		StatusStreamEnd:    "STREAM_END",
+		StatusNotFound:     "NOT_FOUND",
 		StatusError:        "ERROR",
 		StatusUnauthorized: "UNATHORIZED",
-		StatusNotFound:     "NOT_FOUND",
 	}
 }

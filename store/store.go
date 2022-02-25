@@ -51,32 +51,34 @@ func (s *Store) Del(key string) {
 
 // Concurrently search all parts
 // for the keys with the given prefix
-// returns list of matching keys
-func (s *Store) List(prefix string) []string {
-	keys := make([]string, 0)
-	mutex := new(sync.Mutex)
+//
+// Returns channel for list of matching keys
+func (s *Store) List(prefix string, bufferSize int) <-chan string {
+	output := make(chan string, bufferSize)
 	wg := new(sync.WaitGroup)
 	for _, part := range s.Parts {
 		wg.Add(1)
-		go func(part *Part, keys *[]string, wg *sync.WaitGroup, mutex *sync.Mutex) {
-			defer wg.Done()
-			partKeys := make([]string, 0)
-			for _, block := range part.Blocks {
-				for k := range block.Slots {
-					if strings.HasPrefix(k, prefix) {
-						partKeys = append(partKeys, k)
-					}
-				}
-			}
-			if len(partKeys) > 0 {
-				mutex.Lock()
-				*keys = append(*keys, partKeys...)
-				mutex.Unlock()
-			}
-		}(part, &keys, wg, mutex)
+		go s.listKeysInPart(prefix, part, output, wg)
 	}
-	wg.Wait()
-	return keys
+	// close output chan when done
+	go func(wg *sync.WaitGroup, o chan string) {
+		wg.Wait()
+		close(output)
+	}(wg, output)
+	return output
+}
+
+func (s *Store) listKeysInPart(pf string, p *Part, o chan string, wg *sync.WaitGroup) {
+	for _, block := range p.Blocks {
+		block.Mutex.RLock()
+		for k := range block.Slots {
+			if strings.HasPrefix(k, pf) {
+				o <- k
+			}
+		}
+		block.Mutex.RUnlock()
+	}
+	wg.Done()
 }
 
 func (s *Store) getClosestPart(keyHash []byte) *Part {
