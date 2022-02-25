@@ -5,7 +5,7 @@ gobkv
 Minimalisic, highly performant key-value storage, written in Go.
 
 # Usage
-1. Clone `go install github.com/dr-useless/gobkv`
+1. Install `go install github.com/dr-useless/gobkv`
 2. (Optional) Define config.json (see configuration)
 3. Start `./gobkv -c config.json`
 
@@ -26,7 +26,7 @@ Minimalisic, highly performant key-value storage, written in Go.
 Unit of time is one second (for PartWritePeriod).
 
 ## Play
-1. Clone CLI tool, gobler
+1. Install CLI tool, gobler
   `go install github.com/dr-useless/gobler`
 2. Bind to your gobkv instance
   `gobler bind [NETWORK] [ADDRESS] --a [AUTHSECRET]`
