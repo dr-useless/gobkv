@@ -1,6 +1,8 @@
 package store
 
 import (
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"hash/fnv"
@@ -9,6 +11,9 @@ import (
 	"sync"
 )
 
+// Child of Part
+//
+// Contains the slots with values and metadata
 type Block struct {
 	Id        []byte
 	Mutex     *sync.RWMutex
@@ -16,6 +21,7 @@ type Block struct {
 	MustWrite bool
 }
 
+// Contains a value & associated metadata
 type Slot struct {
 	Value    []byte
 	Expires  int64
@@ -34,6 +40,7 @@ func (b *Block) Checksum() []byte {
 	return h.Sum(nil)
 }
 
+// Encodes block slots as gob, and writes to file
 func (b *Block) WriteToFile(dir string) {
 	if !b.MustWrite {
 		return
@@ -55,6 +62,7 @@ func (b *Block) WriteToFile(dir string) {
 	b.Mutex.RUnlock()
 }
 
+// Decodes block file & populates slots
 func (b *Block) ReadFromFile(wg *sync.WaitGroup, dir string) {
 	b.Mutex.Lock()
 	defer b.Mutex.Unlock()
@@ -72,4 +80,16 @@ func (b *Block) ReadFromFile(wg *sync.WaitGroup, dir string) {
 		return
 	}
 	fmt.Printf("read from block %s\r\n", name)
+}
+
+// Returns base64url encoding of id
+//
+// Used for block filename
+func getName(id []byte) string {
+	return base64.RawURLEncoding.EncodeToString(id)
+}
+
+// Returns big endian uint64 of id
+func getNumber(id []byte) uint64 {
+	return binary.BigEndian.Uint64(id)
 }

@@ -81,14 +81,16 @@ func (s *Store) listKeysInPart(pf string, p *Part, o chan string, wg *sync.WaitG
 	wg.Done()
 }
 
+// Returns pointer to part with least Hamming distance
+// from given key hash
 func (s *Store) getClosestPart(keyHash []byte) *Part {
-	var clDist []byte // smallest distance value seen
-	var clPart *Part  // part with smallest distance
+	var clDist []byte // winning distance
+	var clPart *Part  // winning block
 	dist := make([]byte, KEY_HASH_LEN)
 
 	// range through parts to find closest
 	for _, part := range s.Parts {
-		fastxor.Bytes(dist, keyHash, part.Id)
+		fastxor.Block(dist, keyHash, part.Id)
 		if clDist == nil || bytes.Compare(dist, clDist) < 0 {
 			clPart = part
 			clDist = dist

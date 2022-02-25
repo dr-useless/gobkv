@@ -1,13 +1,12 @@
 package store
 
 import (
+	"crypto/rand"
 	"encoding/gob"
 	"fmt"
-	"math/rand"
 	"os"
 	"path"
 	"sync"
-	"time"
 
 	"github.com/intob/gobkv/protocol"
 )
@@ -30,8 +29,7 @@ func (s *Store) EnsureManifest(cfg *PartConfig) {
 		fmt.Println("no manifest found, will create...")
 		// parts
 		for p := 0; p < cfg.Count; p++ {
-			rand.Seed(time.Now().UnixNano())
-			partId := make([]byte, idLen)
+			partId := make([]byte, KEY_HASH_LEN)
 			rand.Read(partId)
 			part := Part{
 				Id:     partId,
@@ -39,7 +37,7 @@ func (s *Store) EnsureManifest(cfg *PartConfig) {
 			}
 			// blocks
 			for b := 0; b < cfg.Count; b++ {
-				blockId := make([]byte, idLen)
+				blockId := make([]byte, KEY_HASH_LEN)
 				rand.Read(blockId)
 				part.Blocks[getNumber(blockId)] = &Block{
 					Id:    blockId,
