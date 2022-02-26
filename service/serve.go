@@ -123,16 +123,23 @@ func handleDel(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
 	return nil
 }
 
-// TODO: buffer keys
 func handleList(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
-	var err error
+	buf := bufio.NewWriter(conn)
 	for k := range st.List(msg.Key, 100) {
-		err = respond(conn, &protocol.Msg{
+		enc, err := protocol.EncodeMsg(&protocol.Msg{
 			Key: k,
 		})
 		if err != nil {
 			return err
 		}
+		_, err = buf.Write(enc)
+		if err != nil {
+			return err
+		}
+	}
+	err := buf.Flush()
+	if err != nil {
+		return err
 	}
 	return respondWithStatus(conn, protocol.StatusStreamEnd)
 }
