@@ -30,15 +30,15 @@ For periords, unit of time is one second. I will add support for parsing time st
 For each part, the number of blocks created is equal to the part count. So, 8 parts will result in 64 blocks.
 
 ## Play
-1. Install CLI tool, gobler
-  `go install github.com/intob/gobler`
+1. Install CLI tool, rkteer
+  `go install github.com/intob/rkteer`
 2. Bind to your rocketkv instance
-  `gobler bind [NETWORK] [ADDRESS] --a [AUTHSECRET]`
+  `rkteer bind [NETWORK] [ADDRESS] --a [AUTHSECRET]`
 3. Call set, get, del, or list
 ```bash
-./gobler set coffee beans
+./rkteer set coffee beans
 status: OK
-./gobler get coffee
+./rkteer get coffee
 beans
 ```
 
@@ -84,10 +84,9 @@ Each time the partition list is loaded, it must be compared to the configured pa
 The expires time is evaluated periodically. The period between scans can be configured using `ExpiryScanPeriod`, giving a number of seconds.
 
 # Protocol
-Framing & serialization is mostly handled by [chamux](https://github.com/intob/chamux).
 
-### Frame body
-The frame body is a Gob-encoded struct; `protocol.Msg`.
+## Msg
+A normal operation is transmitted in the serialized form of `protocol.Msg`.
 ```go
 type Msg struct {
 	Op      byte
@@ -95,9 +94,18 @@ type Msg struct {
 	Key     string
 	Value   []byte
 	Expires int64
-	Keys    []string
 }
 ```
+
+## Serialization
+| 0             | 1             | 2             | 3             |
+|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|0 1 2 3 4 5 6 7|
++---------------+---------------+---------------+---------------+
+| < OP        > | < STATUS    > | < EXPIRES UNIX UINT64         |
+|                                                               |
+|                             > | < KEY LEN UINT16            > |
+  KEY ...                                                       
+  VALUE ...                                                     
 
 ## Op codes
 | Byte | Meaning |
