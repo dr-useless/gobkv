@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/intob/gobkv/store"
+	"github.com/intob/rocketkv/store"
 )
 
 type Watchdog struct {

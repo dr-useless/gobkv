@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net"
 
-	"github.com/intob/gobkv/protocol"
+	"github.com/intob/rocketkv/protocol"
 )
 
 const ErrEmptySecret = "secret is empty"

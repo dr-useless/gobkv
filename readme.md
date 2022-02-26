@@ -1,12 +1,12 @@
-gobkv
+rocketkv
 -----
 
 Minimalisic, highly performant key-value storage, written in Go.
 
 # Usage
-1. Install `go install github.com/intob/gobkv`
+1. Install `go install github.com/intob/rocketkv`
 2. (Optional) Define config.json (see configuration)
-3. Start `./gobkv -c cfg.json`
+3. Start `./rocketkv -c cfg.json`
 
 ## Config
 ```json
@@ -16,7 +16,7 @@ Minimalisic, highly performant key-value storage, written in Go.
   "CertFile": "path/to/x509/cert.pem",
   "KeyFile": "path/to/x509/key.pem",
   "AuthSecret": "supersecretsecret,wait,it'sinthereadme",
-  "Dir": "/etc/gobkv",
+  "Dir": "/etc/rocketkv",
   "ExpiryScanPeriod": 10,
   "Parts": {
     "Count": 8,
@@ -32,7 +32,7 @@ For each part, the number of blocks created is equal to the part count. So, 8 pa
 ## Play
 1. Install CLI tool, gobler
   `go install github.com/intob/gobler`
-2. Bind to your gobkv instance
+2. Bind to your rocketkv instance
   `gobler bind [NETWORK] [ADDRESS] --a [AUTHSECRET]`
 3. Call set, get, del, or list
 ```bash

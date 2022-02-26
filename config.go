@@ -5,7 +5,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/intob/gobkv/store"
+	"github.com/intob/rocketkv/store"
 )
 
 const ErrNetAddressBlank = "network & address must not be blank"

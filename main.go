@@ -8,8 +8,8 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/intob/gobkv/service"
-	"github.com/intob/gobkv/store"
+	"github.com/intob/rocketkv/service"
+	"github.com/intob/rocketkv/store"
 )
 
 var configFile = flag.String("c", "", "must be a file path")

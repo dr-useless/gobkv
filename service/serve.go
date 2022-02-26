@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"net"
 
-	"github.com/intob/gobkv/protocol"
-	"github.com/intob/gobkv/store"
+	"github.com/intob/rocketkv/protocol"
+	"github.com/intob/rocketkv/store"
 )
 
 func ServeConn(conn net.Conn, st *store.Store, authSecret string) {

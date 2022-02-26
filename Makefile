@@ -3,7 +3,7 @@
 VERSION=`git rev-parse HEAD`
 BUILD=`date +%FT%T%z`
 LDFLAGS=-ldflags "-X main.Version=${VERSION} -X main.Build=${BUILD}"
-DOCKER_IMAGE=gobkv
+DOCKER_IMAGE=rocketkv
 
 ## - Show help
 .PHONY: help
@@ -20,25 +20,25 @@ docker-pull:
 ## - Build
 .PHONY: build
 build:docker-pull
-	@printf "\033[32m\xE2\x9c\x93 Build gobkv\n\033[0m"
+	@printf "\033[32m\xE2\x9c\x93 Build rocketkv\n\033[0m"
 	$(eval BUILDER_IMAGE=$(shell docker inspect --format='{{index .RepoDigests 0}}' golang:alpine))
 	@export DOCKER_CONTENT_TRUST=1
-	@docker build --build-arg "BUILDER_IMAGE=$(BUILDER_IMAGE)" -t gobkv .
+	@docker build --build-arg "BUILDER_IMAGE=$(BUILDER_IMAGE)" -t rocketkv .
 
 ## - List docker images
 .PHONY: ls
 ls:
 	@printf "\033[32m\xE2\x9c\x93 Look at the size dude !\n\033[0m"
-	@docker image ls gobkv
+	@docker image ls rocketkv
 
 ## - Run
 .PHONY: run
 run:
-	@printf "\033[32m\xE2\x9c\x93 Run gobkv\n\033[0m"
-	@docker run -d -p 8100 -v $(PWD):/etc/gobkv gobkv -c /etc/gobkv/config.json
+	@printf "\033[32m\xE2\x9c\x93 Run rocketkv\n\033[0m"
+	@docker run -d -p 8100 -v $(PWD):/etc/rocketkv rocketkv -c /etc/rocketkv/config.json
 
 ## - Scan for known vulnerabilities
 .PHONY: scan
 scan:
-	@printf "\033[32m\xE2\x9c\x93 Scan for known vulnerabilities in gobkv\n\033[0m"
-	@docker scan -f Dockerfile gobkv
+	@printf "\033[32m\xE2\x9c\x93 Scan for known vulnerabilities in rocketkv\n\033[0m"
+	@docker scan -f Dockerfile rocketkv

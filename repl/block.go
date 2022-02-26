@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 
-	"github.com/intob/gobkv/store"
+	"github.com/intob/rocketkv/store"
 )
 
 // Block for replication

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/intob/gobkv/util"
+	"github.com/intob/rocketkv/util"
 )
 
 func getTestStore(parts int) *Store {

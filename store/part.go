@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"strings"
 
-	"github.com/intob/gobkv/util"
+	"github.com/intob/rocketkv/util"
 	"github.com/lukechampine/fastxor"
 )
 

@@ -7,8 +7,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/intob/gobkv/protocol"
-	"github.com/intob/gobkv/util"
+	"github.com/intob/rocketkv/protocol"
+	"github.com/intob/rocketkv/util"
 )
 
 type PartConfig struct {
