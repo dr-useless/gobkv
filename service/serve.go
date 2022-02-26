@@ -2,16 +2,19 @@ package service
 
 import (
 	"bufio"
+	"fmt"
 	"net"
 
 	"github.com/intob/rocketkv/protocol"
 	"github.com/intob/rocketkv/store"
 )
 
-func ServeConn(conn net.Conn, st *store.Store, authSecret string) {
+func ServeConn(conn net.Conn, st *store.Store, authSecret string, bufferSize int) {
 	authed := authSecret == ""
 
+	buf := make([]byte, bufferSize)
 	scan := bufio.NewScanner(conn)
+	scan.Buffer(buf, cap(buf))
 	scan.Split(protocol.SplitPlusEnd)
 
 loop:
@@ -19,15 +22,22 @@ loop:
 		mBytes := scan.Bytes()
 		msg, err := protocol.DecodeMsg(mBytes)
 		if err != nil {
-			panic(err)
+			fmt.Println(err)
+			break loop
 		}
 
 		switch msg.Op {
 		case protocol.OpPing:
-			handlePing(conn)
+			err = handlePing(conn)
+			if err != nil {
+				break loop
+			}
 			continue
 		case protocol.OpAuth:
 			authed = handleAuth(conn, msg, authSecret)
+			if !authed {
+				break loop
+			}
 			continue
 		default:
 			if !authed {
@@ -41,18 +51,23 @@ loop:
 		// requires auth
 		switch msg.Op {
 		case protocol.OpGet:
-			handleGet(conn, msg, st)
+			err = handleGet(conn, msg, st)
 		case protocol.OpSet:
-			handleSet(conn, msg, st)
+			err = handleSet(conn, msg, st)
 		case protocol.OpSetAck:
-			handleSet(conn, msg, st)
+			err = handleSet(conn, msg, st)
 		case protocol.OpDel:
-			handleDel(conn, msg, st)
+			err = handleDel(conn, msg, st)
 		case protocol.OpDelAck:
-			handleDel(conn, msg, st)
+			err = handleDel(conn, msg, st)
 		case protocol.OpList:
-			handleList(conn, msg, st)
+			err = handleList(conn, msg, st)
 		case protocol.OpClose:
+			break loop
+		}
+
+		if err != nil {
+			fmt.Println(err)
 			break loop
 		}
 	}
@@ -60,8 +75,8 @@ loop:
 	conn.Close()
 }
 
-func handlePing(conn net.Conn) {
-	respond(conn, &protocol.Msg{
+func handlePing(conn net.Conn) error {
+	return respond(conn, &protocol.Msg{
 		Op:     protocol.OpPong,
 		Status: protocol.StatusOk,
 	})
@@ -77,13 +92,12 @@ func handleAuth(conn net.Conn, msg *protocol.Msg, secret string) bool {
 	return authed
 }
 
-func handleGet(conn net.Conn, msg *protocol.Msg, st *store.Store) {
+func handleGet(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
 	slot, found := st.Get(msg.Key)
 	if !found {
-		respondWithStatus(conn, protocol.StatusNotFound)
-		return
+		return respondWithStatus(conn, protocol.StatusNotFound)
 	}
-	respond(conn, &protocol.Msg{
+	return respond(conn, &protocol.Msg{
 		Status:  protocol.StatusOk,
 		Key:     msg.Key,
 		Value:   slot.Value,
@@ -91,48 +105,58 @@ func handleGet(conn net.Conn, msg *protocol.Msg, st *store.Store) {
 	})
 }
 
-func handleSet(conn net.Conn, msg *protocol.Msg, st *store.Store) {
+func handleSet(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
 	slot := store.Slot{
 		Value:   msg.Value,
 		Expires: msg.Expires,
 	}
 	st.Set(msg.Key, slot)
 	if msg.Op == protocol.OpSetAck {
-		respondWithStatus(conn, protocol.StatusOk)
+		return respondWithStatus(conn, protocol.StatusOk)
 	}
+	return nil
 }
 
-func handleDel(conn net.Conn, msg *protocol.Msg, st *store.Store) {
+func handleDel(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
 	st.Del(msg.Key)
 	if msg.Op == protocol.OpDelAck {
-		respondWithStatus(conn, protocol.StatusOk)
+		return respondWithStatus(conn, protocol.StatusOk)
 	}
+	return nil
 }
 
-// TODO: buffer keys
-func handleList(conn net.Conn, msg *protocol.Msg, st *store.Store) {
+func handleList(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
+	buf := bufio.NewWriter(conn)
 	for k := range st.List(msg.Key, 100) {
-		respond(conn, &protocol.Msg{
+		enc, err := protocol.EncodeMsg(&protocol.Msg{
 			Key: k,
 		})
+		if err != nil {
+			return err
+		}
+		_, err = buf.Write(enc)
+		if err != nil {
+			return err
+		}
 	}
-	respondWithStatus(conn, protocol.StatusStreamEnd)
+	err := buf.Flush()
+	if err != nil {
+		return err
+	}
+	return respondWithStatus(conn, protocol.StatusStreamEnd)
 }
 
-// TODO: handle errors
-func respond(conn net.Conn, resp *protocol.Msg) {
+func respond(conn net.Conn, resp *protocol.Msg) error {
 	respEnc, err := protocol.EncodeMsg(resp)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	_, err = conn.Write(respEnc)
-	if err != nil {
-		panic(err)
-	}
+	return err
 }
 
-func respondWithStatus(conn net.Conn, status byte) {
-	respond(conn, &protocol.Msg{
+func respondWithStatus(conn net.Conn, status byte) error {
+	return respond(conn, &protocol.Msg{
 		Status: status,
 	})
 }
