@@ -126,10 +126,19 @@ func (c *Client) Del(key string, ack bool) error {
 }
 
 // List all keys with the given prefix
-func (c *Client) List(key string) error {
+func (c *Client) List(keyPrefix string) error {
 	msg := &protocol.Msg{
 		Op:  protocol.OpList,
-		Key: key,
+		Key: keyPrefix,
+	}
+	return c.Send(msg)
+}
+
+// Count keys with the given prefix
+func (c *Client) Count(keyPrefix string) error {
+	msg := &protocol.Msg{
+		Op:  protocol.OpCount,
+		Key: keyPrefix,
 	}
 	return c.Send(msg)
 }

@@ -54,3 +54,17 @@ func (p *Part) listKeys(prefix string, o chan string) {
 		block.Mutex.RUnlock()
 	}
 }
+
+func (p *Part) countKeys(prefix string) uint64 {
+	var count uint64
+	for _, block := range p.Blocks {
+		block.Mutex.RLock()
+		for k := range block.Slots {
+			if strings.HasPrefix(k, prefix) {
+				count++
+			}
+		}
+		block.Mutex.RUnlock()
+	}
+	return count
+}

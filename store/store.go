@@ -72,6 +72,24 @@ func (s *Store) List(prefix string, bufferSize int) <-chan string {
 	return output
 }
 
+func (s *Store) Count(prefix string) uint64 {
+	var count uint64
+	mu := new(sync.Mutex)
+	wg := new(sync.WaitGroup)
+	for _, part := range s.Parts {
+		wg.Add(1)
+		go func(part *Part) {
+			c := part.countKeys(prefix)
+			mu.Lock()
+			count += c
+			mu.Unlock()
+			wg.Done()
+		}(part)
+	}
+	wg.Wait()
+	return count
+}
+
 // Returns pointer to part with least Hamming distance
 // from given key hash
 func (s *Store) getClosestPart(keyHash []byte) *Part {

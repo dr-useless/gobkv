@@ -42,9 +42,10 @@ func DecodeMsg(b []byte) (*Msg, error) {
 			return nil, errors.New(ErrMsgKeyLen)
 		}
 		msg.Key = string(b[22:keyEnd])
-		// +END is already stripped by scanner split func
-		msg.Value = b[keyEnd:]
 	}
+
+	// +END is already stripped by scanner split func
+	msg.Value = b[keyEnd:]
 
 	return msg, nil
 }

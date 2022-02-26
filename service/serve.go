@@ -2,6 +2,7 @@ package service
 
 import (
 	"bufio"
+	"encoding/binary"
 	"fmt"
 	"net"
 
@@ -62,6 +63,8 @@ loop:
 			err = handleDel(conn, msg, st)
 		case protocol.OpList:
 			err = handleList(conn, msg, st)
+		case protocol.OpCount:
+			err = handleCount(conn, msg, st)
 		case protocol.OpClose:
 			break loop
 		}
@@ -144,6 +147,18 @@ func handleList(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
 		return err
 	}
 	return respondWithStatus(conn, protocol.StatusStreamEnd)
+}
+
+func handleCount(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
+	count := st.Count(msg.Key)
+	countBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(countBytes, count)
+	return respond(conn, &protocol.Msg{
+		Op:     protocol.OpCount,
+		Status: protocol.StatusOk,
+		Key:    msg.Key,
+		Value:  countBytes,
+	})
 }
 
 func respond(conn net.Conn, resp *protocol.Msg) error {
