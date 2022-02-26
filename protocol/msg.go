@@ -20,6 +20,8 @@ type Msg struct {
 	Expires int64
 }
 
+// Deserializes the given byte slice,
+// and returns a pointer to Msg or an error
 func DecodeMsg(b []byte) (*Msg, error) {
 	msg := &Msg{}
 
@@ -47,6 +49,7 @@ func DecodeMsg(b []byte) (*Msg, error) {
 	return msg, nil
 }
 
+// Serializes the given Msg
 func EncodeMsg(msg *Msg) ([]byte, error) {
 	var buf bytes.Buffer
 
@@ -61,7 +64,9 @@ func EncodeMsg(msg *Msg) ([]byte, error) {
 
 	// Expires
 	expBytes := make([]byte, 16)
-	binary.BigEndian.PutUint64(expBytes, uint64(msg.Expires))
+	if msg.Expires > 0 {
+		binary.BigEndian.PutUint64(expBytes, uint64(msg.Expires))
+	}
 	_, err = buf.Write(expBytes)
 	if err != nil {
 		return nil, err
@@ -72,22 +77,28 @@ func EncodeMsg(msg *Msg) ([]byte, error) {
 	// Key len
 	keyLen := len(keyBytes)
 	keyLenBytes := make([]byte, 4)
-	binary.BigEndian.PutUint16(keyLenBytes, uint16(keyLen))
+	if keyLen > 0 {
+		binary.BigEndian.PutUint16(keyLenBytes, uint16(keyLen))
+	}
 	_, err = buf.Write(keyLenBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	// Key
-	_, err = buf.Write(keyBytes)
-	if err != nil {
-		return nil, err
+	if keyLen > 0 {
+		_, err = buf.Write(keyBytes)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Value
-	_, err = buf.Write(msg.Value)
-	if err != nil {
-		return nil, err
+	if len(msg.Value) > 0 {
+		_, err = buf.Write(msg.Value)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Append split marker using same buffer
