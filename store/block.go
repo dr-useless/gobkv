@@ -28,6 +28,14 @@ type Slot struct {
 	Modified int64
 }
 
+func NewBlock(id []byte) *Block {
+	return &Block{
+		Id:    id,
+		Mutex: new(sync.RWMutex),
+		Slots: make(map[string]Slot),
+	}
+}
+
 // Returns checksum of all slot values
 // For now, only sum Value (not Expires)
 func (b *Block) Checksum() []byte {
@@ -36,7 +44,7 @@ func (b *Block) Checksum() []byte {
 	for _, slot := range b.Slots {
 		h.Write(slot.Value)
 	}
-	defer b.Mutex.RUnlock()
+	b.Mutex.RUnlock()
 	return h.Sum(nil)
 }
 
@@ -63,10 +71,9 @@ func (b *Block) WriteToFile(dir string) {
 }
 
 // Decodes block file & populates slots
-func (b *Block) ReadFromFile(wg *sync.WaitGroup, dir string) {
+func (b *Block) ReadFromFile(dir string) {
 	b.Mutex.Lock()
 	defer b.Mutex.Unlock()
-	defer wg.Done()
 	name := getName(b.Id)
 	fullPath := path.Join(dir, name+".gob")
 	file, err := os.Open(fullPath)

@@ -1,71 +1,65 @@
 package client
 
 import (
+	"bufio"
 	"errors"
 	"net"
 
-	"github.com/intob/chamux"
-	"github.com/intob/gobkv/protocol"
+	"github.com/intob/rocketkv/protocol"
 )
 
-const PF = "gobkv: "
+const ErrEmptySecret = "secret is empty"
+const ErrNegativeExpiry = "expires should be 0 or positive"
+const ErrEmptyKey = "key must not be empty"
+
 const MSG = "msg"
 
 type Client struct {
-	mconn   chamux.MConn
-	msg     chamux.Topic
-	msgSub  <-chan []byte
-	MsgChan chan protocol.Msg
+	conn net.Conn
+	Msgs chan protocol.Msg
 }
 
 // Returns a pointer to a new Client,
-// with topics, subscriptions & an output channel
-// made ready.
-// Messages can be receieved on MsgChan.
+// Messages can be receieved on Msgs chan.
 func NewClient(conn net.Conn) *Client {
-	mc := chamux.NewMConn(conn, chamux.Gob{}, chamux.Options{})
 	c := &Client{
-		mconn: mc,
+		conn: conn,
+		Msgs: make(chan protocol.Msg),
 	}
-	c.msg = chamux.NewTopic(MSG)
-	c.msgSub = c.msg.Subscribe()
-	c.mconn.AddTopic(&c.msg)
-	c.MsgChan = make(chan protocol.Msg, 1)
 	go c.pumpMsgs()
 	return c
 }
 
-// Decodes & writes messages to output chan
+// Reads from conn, decodes & writes
+// messages to Msgs chan
 func (c *Client) pumpMsgs() {
-	for mBytes := range c.msgSub {
+	scan := bufio.NewScanner(c.conn)
+	scan.Split(protocol.SplitPlusEnd)
+	for scan.Scan() {
+		mBytes := scan.Bytes()
 		msg, err := protocol.DecodeMsg(mBytes)
 		if err != nil {
 			panic(err)
 		}
-		c.MsgChan <- *msg
+		c.Msgs <- *msg
 	}
 }
 
 // Encode & publish the given message
-func (c *Client) EncodeAndPublish(msg *protocol.Msg) error {
+func (c *Client) Send(msg *protocol.Msg) error {
 	msgEnc, err := protocol.EncodeMsg(msg)
 	if err != nil {
 		return err
 	}
-	frame := chamux.NewFrame(msgEnc, MSG)
-	return c.mconn.Publish(frame)
-}
-
-// Publish to the underlying MConn
-func (c *Client) Publish(f *chamux.Frame) error {
-	return c.mconn.Publish(f)
+	_, err = c.conn.Write(msgEnc)
+	return err
 }
 
 // Sends a ping message
 //
 // A status message will follow
 func (c *Client) Ping() error {
-	return c.EncodeAndPublish(&protocol.Msg{
+	return c.Send(&protocol.Msg{
 		Op: protocol.OpPing,
 	})
 }
@@ -75,13 +69,13 @@ func (c *Client) Ping() error {
 // A status message will follow
 func (c *Client) Auth(secret string) error {
 	if secret == "" {
-		return errors.New(PF + "secret is empty")
+		return errors.New(ErrEmptySecret)
 	}
 	msg := &protocol.Msg{
 		Op:  protocol.OpAuth,
 		Key: secret,
 	}
-	return c.EncodeAndPublish(msg)
+	return c.Send(msg)
 }
 
 // Sets the value & expires properties of the key
@@ -90,10 +84,10 @@ func (c *Client) Auth(secret string) error {
 // If ack is true, a response will follow
 func (c *Client) Set(key string, value []byte, expires int64, ack bool) error {
 	if expires < 0 {
-		return errors.New(PF + "expires should be 0 or positive")
+		return errors.New(ErrNegativeExpiry)
 	}
 	if key == "" {
-		return errors.New(PF + "key must not be empty")
+		return errors.New(ErrEmptyKey)
 	}
 	msg := &protocol.Msg{
 		Op:    protocol.OpSet,
@@ -103,7 +97,7 @@ func (c *Client) Set(key string, value []byte, expires int64, ack bool) error {
 	if ack {
 		msg.Op = protocol.OpSetAck
 	}
-	return c.EncodeAndPublish(msg)
+	return c.Send(msg)
 }
 
 // Get the value & expires time for a key
@@ -114,7 +108,7 @@ func (c *Client) Get(key string) error {
 		Op:  protocol.OpGet,
 		Key: key,
 	}
-	return c.EncodeAndPublish(msg)
+	return c.Send(msg)
 }
 
 // Delete a key
@@ -128,7 +122,7 @@ func (c *Client) Del(key string, ack bool) error {
 	if ack {
 		msg.Op = protocol.OpDelAck
 	}
-	return c.EncodeAndPublish(msg)
+	return c.Send(msg)
 }
 
 // List all keys with the given prefix
@@ -137,5 +131,5 @@ func (c *Client) List(key string) error {
 		Op:  protocol.OpList,
 		Key: key,
 	}
-	return c.EncodeAndPublish(msg)
+	return c.Send(msg)
 }

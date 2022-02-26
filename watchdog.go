@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/intob/gobkv/store"
+	"github.com/intob/rocketkv/store"
 )
 
 type Watchdog struct {
@@ -44,12 +44,15 @@ func (w *Watchdog) readFromBlockFiles() {
 	if !w.cfg.Parts.Persist {
 		return
 	}
+	wg := new(sync.WaitGroup)
 	for _, part := range w.store.Parts {
-		wg := new(sync.WaitGroup)
-		for _, block := range part.Blocks {
+		for _, b := range part.Blocks {
 			wg.Add(1)
-			go block.ReadFromFile(wg, w.cfg.Dir)
+			go func(b *store.Block) {
+				b.ReadFromFile(w.cfg.Dir)
+				wg.Done()
+			}(b)
 		}
-		wg.Wait()
 	}
+	wg.Wait()
 }

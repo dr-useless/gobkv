@@ -5,8 +5,12 @@ import (
 	"errors"
 	"os"
 
-	"github.com/intob/gobkv/store"
+	"github.com/intob/rocketkv/store"
 )
+
+const ErrNetAddressBlank = "network & address must not be blank"
+const ErrZeroPartCount = "part count must be greater than 0"
+const ErrMissingConfig = "no config file provided"
 
 type Config struct {
 	Network          string // tcp, unix etc...
@@ -21,10 +25,10 @@ type Config struct {
 
 func (c *Config) validate() error {
 	if c.Network == "" || c.Address == "" {
-		return errors.New("network & address must not be blank")
+		return errors.New(ErrNetAddressBlank)
 	}
 	if c.Parts.Persist && c.Parts.Count < 1 {
-		return errors.New("part count must be greater than 0")
+		return errors.New(ErrZeroPartCount)
 	}
 	return nil
 }
@@ -33,14 +37,13 @@ func loadConfig() (Config, error) {
 	cfg := Config{}
 
 	if *configFile == "" {
-		return cfg, errors.New("no config file provided")
+		return cfg, errors.New(ErrMissingConfig)
 	} else {
 		err := read(*configFile, &cfg)
 		if err != nil {
 			return cfg, err
 		}
-		validityError := cfg.validate()
-		return cfg, validityError
+		return cfg, cfg.validate()
 	}
 }
 

@@ -13,8 +13,8 @@ func (s *Store) ScanForExpiredKeys(scanPeriod int) {
 	}
 	fmt.Printf("will scan for expired keys every %v seconds\r\n", scanPeriod)
 	for {
+		wg := new(sync.WaitGroup)
 		for _, part := range s.Parts {
-			wg := new(sync.WaitGroup)
 			for _, block := range part.Blocks {
 				wg.Add(1)
 				go func(block *Block, dir string) {
@@ -37,8 +37,8 @@ func (s *Store) ScanForExpiredKeys(scanPeriod int) {
 					block.Mutex.RUnlock()
 				}(block, s.Dir)
 			}
-			wg.Wait()
 			time.Sleep(time.Duration(scanPeriod) * time.Second)
 		}
+		wg.Wait()
 	}
 }

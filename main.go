@@ -8,8 +8,8 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/intob/gobkv/service"
-	"github.com/intob/gobkv/store"
+	"github.com/intob/rocketkv/service"
+	"github.com/intob/rocketkv/store"
 )
 
 var configFile = flag.String("c", "", "must be a file path")
@@ -51,7 +51,7 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		go serveConn(conn, &st, cfg.AuthSecret)
+		go service.ServeConn(conn, &st, cfg.AuthSecret)
 	}
 }
 

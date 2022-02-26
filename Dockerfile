@@ -32,7 +32,7 @@ RUN go get -d -v
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' -a \
-    -o /go/bin/gobkv .
+    -o /go/bin/rocketkv .
 
 ############################
 # STEP 2 build a small image
@@ -46,11 +46,11 @@ COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
 
 # Copy our static executable
-COPY --from=builder /go/bin/gobkv /go/bin/gobkv
+COPY --from=builder /go/bin/rocketkv /go/bin/rocketkv
 
 # Use an unprivileged user
 #USER appuser:appuser
 
 EXPOSE 8100
 
-ENTRYPOINT ["/go/bin/gobkv"]
+ENTRYPOINT ["/go/bin/rocketkv"]

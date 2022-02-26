@@ -2,10 +2,10 @@ package store
 
 import (
 	"bytes"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/intob/rocketkv/util"
 	"github.com/lukechampine/fastxor"
 )
 
@@ -18,19 +18,20 @@ type Store struct {
 
 // Get Slot for specified key
 // from appropriate partition
-func (s *Store) Get(key string) Slot {
-	h := hashKey(key)
+func (s *Store) Get(key string) (*Slot, bool) {
+	h := util.HashKey(key)
 	block := s.getClosestPart(h).getClosestBlock(h)
 	block.Mutex.RLock()
 	defer block.Mutex.RUnlock()
-	return block.Slots[key]
+	slot, found := block.Slots[key]
+	return &slot, found
 }
 
 // Set specified Slot
 // in appropriate block
 func (s *Store) Set(key string, slot Slot) {
 	slot.Modified = time.Now().Unix()
-	h := hashKey(key)
+	h := util.HashKey(key)
 	block := s.getClosestPart(h).getClosestBlock(h)
 	block.Mutex.Lock()
 	block.Slots[key] = slot
@@ -41,7 +42,7 @@ func (s *Store) Set(key string, slot Slot) {
 // Remove Slot with specified key
 // from appropriate partition
 func (s *Store) Del(key string) {
-	h := hashKey(key)
+	h := util.HashKey(key)
 	block := s.getClosestPart(h).getClosestBlock(h)
 	block.Mutex.Lock()
 	delete(block.Slots, key)
@@ -58,35 +59,25 @@ func (s *Store) List(prefix string, bufferSize int) <-chan string {
 	wg := new(sync.WaitGroup)
 	for _, part := range s.Parts {
 		wg.Add(1)
-		go s.listKeysInPart(prefix, part, output, wg)
+		go func(part *Part) {
+			part.listKeys(prefix, output)
+			wg.Done()
+		}(part)
 	}
 	// close output chan when done
-	go func(wg *sync.WaitGroup, o chan string) {
+	go func() {
 		wg.Wait()
 		close(output)
-	}(wg, output)
+	}()
 	return output
-}
-
-func (s *Store) listKeysInPart(pf string, p *Part, o chan string, wg *sync.WaitGroup) {
-	for _, block := range p.Blocks {
-		block.Mutex.RLock()
-		for k := range block.Slots {
-			if strings.HasPrefix(k, pf) {
-				o <- k
-			}
-		}
-		block.Mutex.RUnlock()
-	}
-	wg.Done()
 }
 
 // Returns pointer to part with least Hamming distance
 // from given key hash
 func (s *Store) getClosestPart(keyHash []byte) *Part {
 	var clDist []byte // winning distance
-	var clPart *Part  // winning block
-	dist := make([]byte, KEY_HASH_LEN)
+	var clPart *Part  // winning part
+	dist := make([]byte, util.ID_LEN)
 
 	// range through parts to find closest
 	for _, part := range s.Parts {
@@ -95,6 +86,8 @@ func (s *Store) getClosestPart(keyHash []byte) *Part {
 			clPart = part
 			clDist = dist
 		}
+		// reset dist slice
+		dist = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	}
 
 	return clPart

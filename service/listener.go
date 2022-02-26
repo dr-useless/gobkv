@@ -19,7 +19,9 @@ func GetListener(network, address, certFile, keyFile string) (net.Listener, erro
 			fmt.Println("failed to load key pair")
 			panic(err)
 		}
-		tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
+		tlsConfig := tls.Config{
+			Certificates: []tls.Certificate{cert},
+		}
 		tlsConfig.Rand = rand.Reader
 		return tls.Listen(network, address, &tlsConfig)
 	}
