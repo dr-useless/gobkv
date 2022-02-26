@@ -7,6 +7,7 @@ import (
 )
 
 const ErrMsgLen = "msg does not meet length requirements"
+const ErrMsgKeyLen = "msg key len field is greater than remaining msg len"
 
 const MSG_LEN_MIN = 22
 
@@ -32,15 +33,17 @@ func DecodeMsg(b []byte) (*Msg, error) {
 	msg.Expires = int64(binary.BigEndian.Uint64(b[2:18]))
 
 	keyLen := int(binary.BigEndian.Uint16(b[18:22]))
-
 	keyEnd := 22 + keyLen
 
-	msg.Key = string(b[22:keyEnd])
+	if keyLen > 0 {
+		if keyEnd > len(b) {
+			return nil, errors.New(ErrMsgKeyLen)
+		}
+		msg.Key = string(b[22:keyEnd])
+		// +END is already stripped by scanner split func
+		msg.Value = b[keyEnd:]
+	}
 
-	// +END is already stripped by scanner split func
-	msg.Value = b[keyEnd:]
-
-	// valLen = int(binary.BigEndian.Uint64(b[keyEnd:]))
 	return msg, nil
 }
 
@@ -76,18 +79,10 @@ func EncodeMsg(msg *Msg) ([]byte, error) {
 	}
 
 	// Key
-	buf.Write(keyBytes)
-
-	/*
-		// Value len
-		valLen := len(msg.Value)
-		valLenBytes := make([]byte, 8)
-		binary.BigEndian.PutUint32(valLenBytes, uint32(valLen))
-		_, err = buf.Write(valLenBytes)
-		if err != nil {
-			return nil, err
-		}
-	*/
+	_, err = buf.Write(keyBytes)
+	if err != nil {
+		return nil, err
+	}
 
 	// Value
 	_, err = buf.Write(msg.Value)
