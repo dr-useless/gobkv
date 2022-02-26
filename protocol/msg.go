@@ -25,5 +25,8 @@ func DecodeMsg(b []byte) (*Msg, error) {
 func EncodeMsg(msg *Msg) ([]byte, error) {
 	var buf bytes.Buffer
 	err := gob.NewEncoder(&buf).Encode(msg)
+	// Append split marker using same buffer
+	// This will be stripped by the split func
+	buf.Write([]byte("+END"))
 	return buf.Bytes(), err
 }

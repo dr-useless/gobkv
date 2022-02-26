@@ -51,7 +51,7 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		go serveConn(conn, &st, cfg.AuthSecret)
+		go service.ServeConn(conn, &st, cfg.AuthSecret)
 	}
 }
 

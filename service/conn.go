@@ -1,10 +1,6 @@
 package service
 
-import (
-	"crypto/tls"
-	"fmt"
-	"net"
-)
+/* UNUSED
 
 // Get a connection with/without TLS
 //
@@ -24,7 +20,7 @@ func GetConn(network, address, certFile, keyFile string) (net.Conn, error) {
 			return nil, err
 		}
 		config := tls.Config{
-			Certificates: []tls.Certificate{cert},
+			Certificates: []tls.Certificate{cert``},
 		}
 		// return client on tls connection
 		conn, err := tls.Dial(network, address, &config)
@@ -34,3 +30,5 @@ func GetConn(network, address, certFile, keyFile string) (net.Conn, error) {
 		return conn, err
 	}
 }
+
+*/

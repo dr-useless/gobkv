@@ -1,5 +1,3 @@
-github.com/intob/chamux v0.2.0 h1:4pMzgowd/JNeMXAwsQkSdYS01dh0HEdMv8kS9n1xVUM=
-github.com/intob/chamux v0.2.0/go.mod h1:r7UXDsoJn60NRum5vxkeywm0WKv9SV5uwiTU60u5zOA=
 github.com/lukechampine/fastxor v0.0.0-20210322201628-b664bed5a5cc h1:P5ymLbODejVbeR9o+TCXMmxHhiCfpqWhEFcm5EF6Y0A=
 github.com/lukechampine/fastxor v0.0.0-20210322201628-b664bed5a5cc/go.mod h1:iR9Fx69P39Bc9zw/hAK0y2lc0uGUxSnpqBBDZzjeMxI=
 golang.org/x/sys v0.0.0-20220224120231-95c6836cb0e7 h1:BXxu8t6QN0G1uff4bzZzSkpsax8+ALqTGUtz08QrV00=
