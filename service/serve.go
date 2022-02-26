@@ -9,10 +9,12 @@ import (
 	"github.com/intob/rocketkv/store"
 )
 
-func ServeConn(conn net.Conn, st *store.Store, authSecret string) {
+func ServeConn(conn net.Conn, st *store.Store, authSecret string, bufferSize int) {
 	authed := authSecret == ""
 
+	buf := make([]byte, bufferSize)
 	scan := bufio.NewScanner(conn)
+	scan.Buffer(buf, cap(buf))
 	scan.Split(protocol.SplitPlusEnd)
 
 loop:

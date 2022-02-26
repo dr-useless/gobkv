@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/intob/rocketkv/store"
@@ -21,6 +22,7 @@ type Config struct {
 	Parts            store.PartConfig
 	Dir              string // storage dir for blocks
 	ExpiryScanPeriod int    // seconds
+	BufferSize       int    // max Msg length
 }
 
 func (c *Config) validate() error {
@@ -33,6 +35,27 @@ func (c *Config) validate() error {
 	return nil
 }
 
+func (c *Config) setDefaults() bool {
+	applied := false
+	if c.BufferSize < 1 {
+		c.BufferSize = 2000000 // 2MB
+		applied = true
+	}
+	if c.ExpiryScanPeriod < 1 {
+		c.ExpiryScanPeriod = 10
+		applied = true
+	}
+	if c.Parts.Count < 1 {
+		c.Parts.Count = 16
+		applied = true
+	}
+	if c.Parts.Persist && c.Parts.WritePeriod < 1 {
+		c.Parts.WritePeriod = 10
+		applied = true
+	}
+	return applied
+}
+
 func loadConfig() (Config, error) {
 	cfg := Config{}
 
@@ -42,6 +65,11 @@ func loadConfig() (Config, error) {
 		err := read(*configFile, &cfg)
 		if err != nil {
 			return cfg, err
+		}
+		defaultsApplied := cfg.setDefaults()
+		fmt.Printf("config: %+v\r\n", cfg)
+		if defaultsApplied {
+			fmt.Println("some defaults applied")
 		}
 		return cfg, cfg.validate()
 	}
