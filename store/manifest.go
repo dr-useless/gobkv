@@ -35,10 +35,7 @@ func (s *Store) EnsureManifest(cfg *PartConfig) {
 				fmt.Println("failed to read from rand reader")
 				panic(err)
 			}
-			part := Part{
-				Id:     partId,
-				Blocks: make(map[uint64]*Block),
-			}
+			part := NewPart(partId)
 			// blocks
 			for b := 0; b < cfg.Count; b++ {
 				blockId := make([]byte, util.ID_LEN)
@@ -63,10 +60,7 @@ func (s *Store) EnsureManifest(cfg *PartConfig) {
 			panic(err)
 		}
 		for _, partManifest := range manifest {
-			part := Part{
-				Id:     partManifest.PartId,
-				Blocks: make(map[uint64]*Block),
-			}
+			part := NewPart(partManifest.PartId)
 			for _, block := range partManifest.Blocks {
 				part.Blocks[getNumber(block.BlockId)] = NewBlock(block.BlockId)
 			}

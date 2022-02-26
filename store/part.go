@@ -15,6 +15,13 @@ type Part struct {
 	Blocks map[uint64]*Block
 }
 
+func NewPart(id []byte) Part {
+	return Part{
+		Id:     id,
+		Blocks: make(map[uint64]*Block),
+	}
+}
+
 // Returns pointer to block with least Hamming distance
 // from given key hash
 func (p *Part) getClosestBlock(keyHash []byte) *Block {

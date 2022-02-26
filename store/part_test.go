@@ -1,39 +1,47 @@
 package store
 
 import (
-	"math/rand"
+	"bytes"
 	"testing"
 
 	"github.com/intob/gobkv/util"
 )
 
 func getTestPart(blocks int) Part {
-	p := Part{
-		Blocks: make(map[uint64]*Block),
-	}
+	partId, _ := util.RandomId()
+	p := NewPart(partId)
 	for i := 0; i < blocks; i++ {
 		// make block with random ID
-		id := make([]byte, util.ID_LEN)
-		rand.Read(id)
-		b := NewBlock(id)
+		blockId, _ := util.RandomId()
+		block := NewBlock(blockId)
 		// fill with blocks*256 random slots
-		slotId := make([]byte, util.ID_LEN)
 		for s := 0; s < blocks*256; s++ {
-			_, err := rand.Read(slotId)
-			if err != nil {
-				panic(err)
-			}
-			b.Slots[getName(slotId)] = Slot{Value: slotId}
+			slotId, _ := util.RandomId()
+			block.Slots[getName(slotId)] = Slot{Value: slotId}
 		}
-		p.Blocks[getNumber(id)] = b
+		p.Blocks[getNumber(blockId)] = block
 	}
 	return p
 }
 
-var keyHash = util.HashKey("test")
-var part = getTestPart(16)
+// Tests that calling getClosestBlock always returns
+// the same block.
+func TestGetClosestBlock(t *testing.T) {
+	part := getTestPart(16)
+	keyHash := util.HashKey("test")
+	clCtl := part.getClosestBlock(keyHash)
+	for i := 0; i < len(part.Blocks); i++ {
+		clCur := part.getClosestBlock(keyHash)
+		if !bytes.Equal(clCtl.Id, clCur.Id) {
+			t.FailNow()
+		}
+	}
+
+}
 
 func BenchmarkGetClosestBlock(b *testing.B) {
+	part := getTestPart(16)
+	keyHash := util.HashKey("test")
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		part.getClosestBlock(keyHash)
@@ -41,6 +49,7 @@ func BenchmarkGetClosestBlock(b *testing.B) {
 }
 
 func BenchmarkListKeys(b *testing.B) {
+	part := getTestPart(16)
 	out := make(chan string)
 	go func() {
 		for {
