@@ -161,3 +161,15 @@ The solution for eventual consistency is a little simpler for RocketKV. Eventual
 Low-latency & consistency is acheived because the mapping for key:node is deterministic.
 
 For now, the modifed-date is used to determine causality. As long as nodes have somewhat syncronised clocks, this is perfectly adequate.
+
+## Service discovery (later)
+Each RocketKV node, and all clients would query a single service or cluster of services.
+
+The single role of this service is to tell clients & RocketKV nodes which nodes currently exist, and their health.
+
+### Updates
+Adding a node to the RocketKV network is as simple as spinning it up & making sure that this service knows about it.
+
+A simple solution for automating this would be to include a key-pair in the configuration of each node. A new node can then securely notify this service of it's presence.
+
+An even simpler (but less secure) method would be the use of a shared secret.
