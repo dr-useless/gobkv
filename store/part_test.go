@@ -17,9 +17,9 @@ func getTestPart(blocks int) Part {
 		// fill with blocks*256 random slots
 		for s := 0; s < blocks*256; s++ {
 			slotId, _ := util.RandomId()
-			block.Slots[getName(slotId)] = Slot{Value: slotId}
+			block.Slots[util.GetName(slotId)] = Slot{Value: slotId}
 		}
-		p.Blocks[getNumber(blockId)] = block
+		p.Blocks[util.GetNumber(blockId)] = block
 	}
 	return p
 }

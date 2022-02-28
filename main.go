@@ -8,8 +8,9 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/intob/rocketkv/service"
+	"github.com/intob/rocketkv/repl"
 	"github.com/intob/rocketkv/store"
+	"github.com/intob/rocketkv/util"
 )
 
 var configFile = flag.String("c", "", "must be a file path")
@@ -36,7 +37,7 @@ func main() {
 	// blocks until parts are ready
 	watchdog.readFromBlockFiles()
 
-	listener, err := service.GetListener(
+	listener, err := util.GetListener(
 		cfg.Network, cfg.Address, cfg.CertFile, cfg.KeyFile)
 	if err != nil {
 		panic(err)
@@ -45,13 +46,16 @@ func main() {
 	go waitForSigInt(listener, &watchdog)
 	go watchdog.watch()
 
+	// repl
+	repl.NewReplService(cfg.Repl, &st)
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			log.Println(err)
 			continue
 		}
-		go service.ServeConn(conn, &st, cfg.AuthSecret, cfg.BufferSize)
+		go store.ServeConn(conn, &st, cfg.AuthSecret, cfg.BufferSize)
 	}
 }
 

@@ -9,14 +9,13 @@ import (
 	"github.com/lukechampine/fastxor"
 )
 
-// Exported struct for net/rpc calls
-// Holds configuration for convenience
 type Store struct {
-	Parts map[uint64]*Part
-	Dir   string
+	Parts  map[uint64]*Part
+	Dir    string
+	DelTtl time.Duration
 }
 
-// Get Slot for specified key
+// Get slot for specified key
 // from appropriate partition
 func (s *Store) Get(key string) (*Slot, bool) {
 	h := util.HashKey(key)
@@ -27,26 +26,55 @@ func (s *Store) Get(key string) (*Slot, bool) {
 	return &slot, found
 }
 
-// Set specified Slot
-// in appropriate block
-func (s *Store) Set(key string, slot Slot) {
-	slot.Modified = time.Now().Unix()
+// Set specified slot in appropriate block
+func (s *Store) Set(key string, slot Slot, repl bool) {
 	h := util.HashKey(key)
 	block := s.getClosestPart(h).getClosestBlock(h)
+	if repl && block.Slots[key].Modified > slot.Modified {
+		// if key has been modified since, skip it
+		return
+	} else {
+		slot.Modified = time.Now().Unix()
+	}
 	block.Mutex.Lock()
 	block.Slots[key] = slot
 	block.MustWrite = true
+	// don't re-replicate (for now)
+	// TODO: think more about this, maybe it's better
+	// to re-replicate except to origin of repl.
+	// This would ensure that all replicas arrive at a consistent state,
+	// even if they are not all connected. However, it increases the ammount
+	// of work that is done. Maybe we can make this a config option.
+	if !repl {
+		for _, replNodeState := range block.ReplState {
+			if replNodeState != nil {
+				replNodeState.MustSync = true
+			}
+		}
+	}
 	block.Mutex.Unlock()
 }
 
-// Remove Slot with specified key
-// from appropriate partition
+// Remove slot with specified key
+//
+// So that other nodes can replicate this, without maintaining
+// a list of deletes or a log of operations, simply set the
+// expiry time. This allows replicas to follow before the key
+// is cleaned up.
 func (s *Store) Del(key string) {
 	h := util.HashKey(key)
 	block := s.getClosestPart(h).getClosestBlock(h)
 	block.Mutex.Lock()
-	delete(block.Slots, key)
+	slot := block.Slots[key]
+	slot.Expires = time.Now().Add(s.DelTtl).Unix()
+	slot.Modified = time.Now().Unix()
+	block.Slots[key] = slot
 	block.MustWrite = true
+	for _, replNodeState := range block.ReplState {
+		if replNodeState != nil {
+			replNodeState.MustSync = true
+		}
+	}
 	block.Mutex.Unlock()
 }
 

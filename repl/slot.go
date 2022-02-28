@@ -1,4 +1,4 @@
-package protocol
+package repl
 
 import (
 	"bytes"
@@ -9,40 +9,37 @@ import (
 const ErrMsgLen = "msg does not meet length requirements"
 const ErrMsgKeyLen = "msg key len field is greater than remaining msg len"
 
-const MSG_LEN_MIN = 22
+const REPL_MSG_LEN_MIN = 36
 
-// Msg body for normal ops
-type Msg struct {
-	Op       byte
-	Status   byte
-	Key      string
-	Value    []byte
+// Slot msg for replication
+type ReplMsg struct {
 	Expires  int64
 	Modified int64
+	Key      string
+	Value    []byte
 }
 
 // Deserializes the given byte slice,
 // and returns a pointer to Msg or an error
-func DecodeMsg(b []byte) (*Msg, error) {
-	msg := &Msg{}
+func DecodeReplMsg(b []byte) (*ReplMsg, error) {
+	msg := &ReplMsg{}
 
-	if len(b) < MSG_LEN_MIN {
+	if len(b) < REPL_MSG_LEN_MIN {
 		return nil, errors.New(ErrMsgLen)
 	}
 
-	msg.Op = b[0]
-	msg.Status = b[1]
+	msg.Expires = int64(binary.BigEndian.Uint64(b[0:16]))
 
-	msg.Expires = int64(binary.BigEndian.Uint64(b[2:18]))
+	msg.Modified = int64(binary.BigEndian.Uint64(b[16:32]))
 
-	keyLen := int(binary.BigEndian.Uint16(b[18:22]))
-	keyEnd := 22 + keyLen
+	keyLen := int(binary.BigEndian.Uint16(b[32:REPL_MSG_LEN_MIN]))
+	keyEnd := REPL_MSG_LEN_MIN + keyLen
 
 	if keyLen > 0 {
 		if keyEnd > len(b) {
 			return nil, errors.New(ErrMsgKeyLen)
 		}
-		msg.Key = string(b[22:keyEnd])
+		msg.Key = string(b[REPL_MSG_LEN_MIN:keyEnd])
 	}
 
 	// +END is already stripped by scanner split func
@@ -52,24 +49,25 @@ func DecodeMsg(b []byte) (*Msg, error) {
 }
 
 // Serializes the given Msg
-func EncodeMsg(msg *Msg) ([]byte, error) {
+func EncodeReplMsg(msg *ReplMsg) ([]byte, error) {
 	var buf bytes.Buffer
 
-	err := buf.WriteByte(msg.Op)
-	if err != nil {
-		return nil, err
-	}
-	err = buf.WriteByte(msg.Status)
-	if err != nil {
-		return nil, err
-	}
-
-	// Expires
+	// Expires [0:16]
 	expBytes := make([]byte, 16)
 	if msg.Expires > 0 {
 		binary.BigEndian.PutUint64(expBytes, uint64(msg.Expires))
 	}
-	_, err = buf.Write(expBytes)
+	_, err := buf.Write(expBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Modified [16:32]
+	modBytes := make([]byte, 16)
+	if msg.Modified > 0 {
+		binary.BigEndian.PutUint64(modBytes, uint64(msg.Modified))
+	}
+	_, err = buf.Write(modBytes)
 	if err != nil {
 		return nil, err
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/intob/rocketkv/repl"
 	"github.com/intob/rocketkv/store"
 )
 
@@ -23,6 +24,7 @@ type Config struct {
 	Dir              string // storage dir for blocks
 	ExpiryScanPeriod int    // seconds
 	BufferSize       int    // max Msg length
+	Repl             repl.ReplConfig
 }
 
 func (c *Config) validate() error {
@@ -52,6 +54,9 @@ func (c *Config) setDefaults() bool {
 	if c.Parts.Persist && c.Parts.WritePeriod < 1 {
 		c.Parts.WritePeriod = 10
 		applied = true
+	}
+	if c.Repl.BufferSize < 1 {
+		c.Repl.BufferSize = c.BufferSize
 	}
 	return applied
 }

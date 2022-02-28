@@ -14,7 +14,7 @@ func getTestStore(parts int) *Store {
 	// make parts
 	for i := 0; i < parts; i++ {
 		part := getTestPart(parts)
-		s.Parts[getNumber(part.Id)] = &part
+		s.Parts[util.GetNumber(part.Id)] = &part
 	}
 	return s
 }

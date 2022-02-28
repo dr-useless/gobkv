@@ -1,24 +1,33 @@
 package store
 
 import (
-	"encoding/base64"
-	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"hash/fnv"
 	"os"
 	"path"
 	"sync"
+
+	"github.com/intob/rocketkv/util"
 )
 
 // Child of Part
 //
 // Contains the slots with values and metadata
+//
+// MustWrite flag is true if changes have been made since last disk-write
+//
+// MustSync flag is true for each node if changes have been made since last sync
 type Block struct {
 	Id        []byte
 	Mutex     *sync.RWMutex
 	Slots     map[string]Slot
 	MustWrite bool
+	ReplState map[uint64]*ReplNodeState // replNodeId
+}
+
+type ReplNodeState struct {
+	MustSync bool
 }
 
 // Contains a value & associated metadata
@@ -30,9 +39,10 @@ type Slot struct {
 
 func NewBlock(id []byte) *Block {
 	return &Block{
-		Id:    id,
-		Mutex: new(sync.RWMutex),
-		Slots: make(map[string]Slot),
+		Id:        id,
+		Mutex:     new(sync.RWMutex),
+		Slots:     make(map[string]Slot),
+		ReplState: make(map[uint64]*ReplNodeState),
 	}
 }
 
@@ -53,7 +63,7 @@ func (b *Block) WriteToFile(dir string) {
 	if !b.MustWrite {
 		return
 	}
-	name := getName(b.Id)
+	name := util.GetName(b.Id)
 	fullPath := path.Join(dir, name+".gob")
 	file, err := os.Create(fullPath)
 	if err != nil {
@@ -74,7 +84,7 @@ func (b *Block) WriteToFile(dir string) {
 func (b *Block) ReadFromFile(dir string) {
 	b.Mutex.Lock()
 	defer b.Mutex.Unlock()
-	name := getName(b.Id)
+	name := util.GetName(b.Id)
 	fullPath := path.Join(dir, name+".gob")
 	file, err := os.Open(fullPath)
 	if err != nil {
@@ -87,16 +97,4 @@ func (b *Block) ReadFromFile(dir string) {
 		return
 	}
 	fmt.Printf("read from block %s\r\n", name)
-}
-
-// Returns base64url encoding of id
-//
-// Used for block filename
-func getName(id []byte) string {
-	return base64.RawURLEncoding.EncodeToString(id)
-}
-
-// Returns big endian uint64 of id
-func getNumber(id []byte) uint64 {
-	return binary.BigEndian.Uint64(id)
 }
