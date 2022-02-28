@@ -144,13 +144,13 @@ When a client wants to read/write a key, they will execute the following process
 
 ### Read
 1. Hash key
-2. Calculate closest node using Hamming distance
+2. Calculate closest node using the Rendezvous hash (Hamming)
 3. Request key from closest node
 4. Fallback to next node, recurring until successful or end of node-list is reached
 
 ### Write
 1. Hash key
-2. Calculate closest 3 nodes using Hamming distance
+2. Calculate closest 3 nodes using the Rendezvous hash (Hamming)
 3. Send the request concurrently to each node
 4. The operation can be considered complete when the desired number of nodes have acknowleged the request (sent an OK response). 1 node is not sufficient for consistency. 2 of 3 nodes is sufficient for eventual consistency.
 5. If a node does not respond, it can optionally be marked by the client as 'down' for a defined period, to prevent future requests timing-out.
@@ -163,7 +163,7 @@ Low-latency & consistency is acheived because the mapping for key:node is determ
 For now, the modifed-date is used to determine causality. As long as nodes have somewhat syncronised clocks, this is perfectly adequate.
 
 ## Service discovery (later)
-Each RocketKV node, and all clients would query a single service or cluster of services.
+Each RocketKV node, and all clients would query a single service or cluster.
 
 The single role of this service is to tell clients & RocketKV nodes which nodes currently exist, and their health.
 
