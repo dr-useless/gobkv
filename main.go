@@ -47,7 +47,9 @@ func main() {
 	go watchdog.watch()
 
 	// repl
-	repl.NewReplService(cfg.Repl, &st)
+	if cfg.Repl.NetAddr.Address != "" {
+		repl.NewReplService(cfg.Repl, &st)
+	}
 
 	for {
 		conn, err := listener.Accept()
