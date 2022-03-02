@@ -1,10 +1,7 @@
 package repl
 
 type ReplConfig struct {
-	Name       string
-	Id         []byte // calulated by hashing name
-	Network    string
-	Address    string
+	PeerCfg
 	AuthSecret string // for now, this is the same for all nodes
 	CertFile   string
 	KeyFile    string
@@ -14,8 +11,12 @@ type ReplConfig struct {
 }
 
 type PeerCfg struct {
-	Name    string
-	Id      []byte // calculated by hashing name
+	NetAddr
+	Name string
+	Id   []byte // calculated by hashing name
+}
+
+type NetAddr struct {
 	Network string
 	Address string
 }

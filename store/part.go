@@ -5,11 +5,11 @@ import (
 	"strings"
 
 	"github.com/intob/rocketkv/util"
-	"github.com/lukechampine/fastxor"
 )
 
 const manifestFileName = "manifest.gob"
 
+// First layer of division of the Store
 type Part struct {
 	Id     []byte
 	Blocks map[uint64]*Block
@@ -31,7 +31,7 @@ func (p *Part) getClosestBlock(keyHash []byte) *Block {
 
 	// range through blocks to find closest
 	for _, block := range p.Blocks {
-		fastxor.Block(dist, keyHash, block.Id)
+		util.FastXor(dist, keyHash, block.Id)
 		if clDist == nil || bytes.Compare(dist, clDist) < 0 {
 			clBlock = block
 			clDist = dist

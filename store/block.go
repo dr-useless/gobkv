@@ -11,12 +11,13 @@ import (
 	"github.com/intob/rocketkv/util"
 )
 
+// Second layer of division of the Store
+//
 // Child of Part
 //
 // Contains the slots with values and metadata
 //
-// MustWrite flag is true if changes have been made since last disk-write
-//
+// MustWrite flag is true if changes have been made since last disk-write.
 // MustSync flag is true for each node if changes have been made since last sync
 type Block struct {
 	Id        []byte

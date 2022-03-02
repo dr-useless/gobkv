@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/intob/rocketkv/util"
-	"github.com/lukechampine/fastxor"
 )
 
 type Store struct {
@@ -127,7 +126,7 @@ func (s *Store) getClosestPart(keyHash []byte) *Part {
 
 	// range through parts to find closest
 	for _, part := range s.Parts {
-		fastxor.Block(dist, keyHash, part.Id)
+		util.FastXor(dist, keyHash, part.Id)
 		if clDist == nil || bytes.Compare(dist, clDist) < 0 {
 			clPart = part
 			clDist = dist

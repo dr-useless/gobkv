@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 const ErrMsgLen = "msg does not meet length requirements"
@@ -37,6 +38,7 @@ func DecodeReplMsg(b []byte) (*ReplMsg, error) {
 
 	if keyLen > 0 {
 		if keyEnd > len(b) {
+			fmt.Println("keyLen:", keyLen, "len(b):", len(b))
 			return nil, errors.New(ErrMsgKeyLen)
 		}
 		msg.Key = string(b[REPL_MSG_LEN_MIN:keyEnd])
