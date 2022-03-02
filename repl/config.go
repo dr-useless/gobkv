@@ -1,16 +1,22 @@
 package repl
 
 type ReplConfig struct {
-	Network  string
-	Address  string
-	CertFile string
-	KeyFile  string
-	Peers    []ReplPeer
-	id       []byte // randomly generated on launch
+	PeerCfg
+	AuthSecret string // for now, this is the same for all nodes
+	CertFile   string
+	KeyFile    string
+	BufferSize int
+	Peers      []PeerCfg // TODO: add service discovery
+	Period     int       // seconds
 }
 
-type ReplPeer struct {
-	Id      []byte
+type PeerCfg struct {
+	NetAddr
+	Name string
+	Id   []byte // calculated by hashing name
+}
+
+type NetAddr struct {
 	Network string
 	Address string
 }

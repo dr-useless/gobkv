@@ -10,3 +10,4 @@
 rocketkv
 *.json
 state/
+wg.txt

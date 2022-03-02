@@ -1,4 +1,4 @@
-package service
+package store
 
 import (
 	"bufio"
@@ -7,10 +7,9 @@ import (
 	"net"
 
 	"github.com/intob/rocketkv/protocol"
-	"github.com/intob/rocketkv/store"
 )
 
-func ServeConn(conn net.Conn, st *store.Store, authSecret string, bufferSize int) {
+func ServeConn(conn net.Conn, st *Store, authSecret string, bufferSize int) {
 	authed := authSecret == ""
 
 	buf := make([]byte, bufferSize)
@@ -95,7 +94,7 @@ func handleAuth(conn net.Conn, msg *protocol.Msg, secret string) bool {
 	return authed
 }
 
-func handleGet(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
+func handleGet(conn net.Conn, msg *protocol.Msg, st *Store) error {
 	slot, found := st.Get(msg.Key)
 	if !found {
 		return respondWithStatus(conn, protocol.StatusNotFound)
@@ -108,19 +107,19 @@ func handleGet(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
 	})
 }
 
-func handleSet(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
-	slot := store.Slot{
+func handleSet(conn net.Conn, msg *protocol.Msg, st *Store) error {
+	slot := Slot{
 		Value:   msg.Value,
 		Expires: msg.Expires,
 	}
-	st.Set(msg.Key, slot)
+	st.Set(msg.Key, slot, false)
 	if msg.Op == protocol.OpSetAck {
 		return respondWithStatus(conn, protocol.StatusOk)
 	}
 	return nil
 }
 
-func handleDel(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
+func handleDel(conn net.Conn, msg *protocol.Msg, st *Store) error {
 	st.Del(msg.Key)
 	if msg.Op == protocol.OpDelAck {
 		return respondWithStatus(conn, protocol.StatusOk)
@@ -128,7 +127,7 @@ func handleDel(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
 	return nil
 }
 
-func handleList(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
+func handleList(conn net.Conn, msg *protocol.Msg, st *Store) error {
 	buf := bufio.NewWriter(conn)
 	for k := range st.List(msg.Key, 100) {
 		enc, err := protocol.EncodeMsg(&protocol.Msg{
@@ -149,7 +148,7 @@ func handleList(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
 	return respondWithStatus(conn, protocol.StatusStreamEnd)
 }
 
-func handleCount(conn net.Conn, msg *protocol.Msg, st *store.Store) error {
+func handleCount(conn net.Conn, msg *protocol.Msg, st *Store) error {
 	count := st.Count(msg.Key)
 	countBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(countBytes, count)

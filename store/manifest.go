@@ -40,9 +40,9 @@ func (s *Store) EnsureManifest(cfg *PartConfig) {
 			for b := 0; b < cfg.Count; b++ {
 				blockId := make([]byte, util.ID_LEN)
 				rand.Read(blockId)
-				part.Blocks[getNumber(blockId)] = NewBlock(blockId)
+				part.Blocks[util.GetNumber(blockId)] = NewBlock(blockId)
 			}
-			s.Parts[getNumber(partId)] = &part
+			s.Parts[util.GetNumber(partId)] = &part
 		}
 		newManifestFile, err := os.Create(manifestPath)
 		if err != nil {
@@ -62,9 +62,9 @@ func (s *Store) EnsureManifest(cfg *PartConfig) {
 		for _, partManifest := range manifest {
 			part := NewPart(partManifest.PartId)
 			for _, block := range partManifest.Blocks {
-				part.Blocks[getNumber(block.BlockId)] = NewBlock(block.BlockId)
+				part.Blocks[util.GetNumber(block.BlockId)] = NewBlock(block.BlockId)
 			}
-			s.Parts[getNumber(part.Id)] = &part
+			s.Parts[util.GetNumber(part.Id)] = &part
 		}
 		blockCount := len(s.Parts) * len(s.Parts)
 		fmt.Printf("initialised %v blocks from manifest\r\n", blockCount)
