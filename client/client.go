@@ -55,6 +55,15 @@ func (c *Client) Send(msg *protocol.Msg) error {
 	return err
 }
 
+// Sends a close message,
+// and closes the connection
+func (c *Client) Close() error {
+	defer c.conn.Close()
+	return c.Send(&protocol.Msg{
+		Op: protocol.OpClose,
+	})
+}
+
 // Sends a ping message
 //
 // A status message will follow

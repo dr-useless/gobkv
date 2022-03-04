@@ -1,13 +1,13 @@
 package store
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/gob"
 	"fmt"
 	"os"
 	"path"
 
-	"github.com/intob/rocketkv/protocol"
 	"github.com/intob/rocketkv/util"
 )
 
@@ -15,6 +15,29 @@ type PartConfig struct {
 	Count       int
 	Persist     bool
 	WritePeriod int // seconds
+}
+
+type Manifest []PartManifest
+
+type PartManifest struct {
+	PartId []byte
+	Blocks []BlockManifest
+}
+
+type BlockManifest struct {
+	BlockId []byte
+}
+
+func (v *Manifest) DecodeFrom(b []byte) error {
+	var buf bytes.Buffer
+	buf.Write(b)
+	return gob.NewDecoder(&buf).Decode(v)
+}
+
+func (v *Manifest) Encode() ([]byte, error) {
+	var buf bytes.Buffer
+	err := gob.NewEncoder(&buf).Encode(v)
+	return buf.Bytes(), err
 }
 
 // ensures that a manifest & block files exist
@@ -53,7 +76,7 @@ func (s *Store) EnsureManifest(cfg *PartConfig) {
 		gob.NewEncoder(newManifestFile).Encode(manifest)
 	} else {
 		// decode list
-		manifest := make(protocol.Manifest, 0)
+		manifest := make(Manifest, 0)
 		err := gob.NewDecoder(manifestFile).Decode(&manifest)
 		if err != nil {
 			fmt.Println("failed to decode manifest")
@@ -71,17 +94,16 @@ func (s *Store) EnsureManifest(cfg *PartConfig) {
 	}
 }
 
-func (s *Store) getManifest() *protocol.Manifest {
-	manifest := make(protocol.Manifest, 0)
+func (s *Store) getManifest() *Manifest {
+	manifest := make(Manifest, 0)
 	for _, part := range s.Parts {
-		partManifest := protocol.PartManifest{
+		partManifest := PartManifest{
 			PartId: part.Id,
-			Blocks: make([]protocol.BlockManifest, 0),
+			Blocks: make([]BlockManifest, 0),
 		}
 		for _, block := range part.Blocks {
-			blockManifest := protocol.BlockManifest{
+			blockManifest := BlockManifest{
 				BlockId: block.Id,
-				Hash:    block.Checksum(),
 			}
 			partManifest.Blocks = append(partManifest.Blocks, blockManifest)
 		}

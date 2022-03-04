@@ -7,17 +7,19 @@ import (
 	"github.com/intob/rocketkv/util"
 )
 
-func getTestPart(blocks int) Part {
+func getTestPart(blocks int, putSlots bool) Part {
 	partId, _ := util.RandomId()
 	p := NewPart(partId)
 	for i := 0; i < blocks; i++ {
 		// make block with random ID
 		blockId, _ := util.RandomId()
 		block := NewBlock(blockId)
-		// fill with blocks*256 random slots
-		for s := 0; s < blocks*256; s++ {
-			slotId, _ := util.RandomId()
-			block.Slots[util.GetName(slotId)] = Slot{Value: slotId}
+		if putSlots {
+			// fill with blocks*256 random slots
+			for s := 0; s < blocks*256; s++ {
+				slotId, _ := util.RandomId()
+				block.Slots[util.GetName(slotId)] = Slot{Value: slotId}
+			}
 		}
 		p.Blocks[util.GetNumber(blockId)] = block
 	}
@@ -27,8 +29,8 @@ func getTestPart(blocks int) Part {
 // Tests that calling getClosestBlock always returns
 // the same block.
 func TestGetClosestBlock(t *testing.T) {
-	part := getTestPart(16)
-	keyHash := util.HashKey("test")
+	part := getTestPart(16, false)
+	keyHash := util.HashStr("test")
 	clCtl := part.getClosestBlock(keyHash)
 	for i := 0; i < len(part.Blocks); i++ {
 		clCur := part.getClosestBlock(keyHash)
@@ -40,8 +42,8 @@ func TestGetClosestBlock(t *testing.T) {
 }
 
 func BenchmarkGetClosestBlock(b *testing.B) {
-	part := getTestPart(16)
-	keyHash := util.HashKey("test")
+	part := getTestPart(16, false)
+	keyHash := util.HashStr("test")
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		part.getClosestBlock(keyHash)
@@ -49,7 +51,7 @@ func BenchmarkGetClosestBlock(b *testing.B) {
 }
 
 func BenchmarkListKeys(b *testing.B) {
-	part := getTestPart(16)
+	part := getTestPart(16, true)
 	out := make(chan string)
 	go func() {
 		for {
@@ -57,6 +59,6 @@ func BenchmarkListKeys(b *testing.B) {
 		}
 	}()
 	for i := 0; i < b.N; i++ {
-		part.listKeys("", out)
+		part.listKeys("", "", out)
 	}
 }

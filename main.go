@@ -57,7 +57,7 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		go store.ServeConn(conn, &st, cfg.AuthSecret, cfg.BufferSize)
+		go st.ServeConn(conn, cfg.AuthSecret, cfg.BufferSize)
 	}
 }
 

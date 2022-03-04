@@ -29,7 +29,7 @@ func NewReplService(cfg ReplConfig, store *store.Store) *ReplService {
 		store: store,
 		peers: make(map[uint64]*PeerConn),
 	}
-	svc.cfg.Id = util.HashKey(cfg.Name)
+	svc.cfg.Id = util.HashStr(cfg.Name)
 
 	fmt.Println("my repl id:", util.GetNumber(svc.cfg.Id))
 
@@ -39,7 +39,7 @@ func NewReplService(cfg ReplConfig, store *store.Store) *ReplService {
 	// peers with a lower ID will connect to me
 	myIdNumber := util.GetNumber(svc.cfg.Id)
 	for _, peer := range cfg.Peers {
-		peer.Id = util.HashKey(peer.Name)
+		peer.Id = util.HashStr(peer.Name)
 		peerIdNumber := util.GetNumber(peer.Id)
 		if peerIdNumber > myIdNumber {
 			fmt.Println("connecting to ", peer.Address)

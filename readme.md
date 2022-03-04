@@ -33,8 +33,8 @@ For each part, the number of blocks created is equal to the part count. So, 8 pa
   `go install github.com/intob/rkteer`
 2. Bind to your rocketkv instance
   `rkteer bind [NETWORK] [ADDRESS] --a [AUTHSECRET]`
-3. Call set, get, del, or list
-```bash
+3. Call set, get, del, list, or count
+```
 ./rkteer set coffee beans
 status: OK
 ./rkteer get coffee
@@ -48,8 +48,31 @@ beans
 - Re-partitioning
 - Test membership using Bloom filter before GET
 
-# Partitions
-To reduce load on the file system & and decrease blocking, the dataset is split across the configured number of partitions (parts).
+# Keys
+Keys can be specified in two forms; bare & namespaced.
+
+## Bare
+A bare key has no namespace prefix. It is simply a string with no `/` path separator.
+
+## Namespaced
+Grouping keys is acheived by namespacing. This is done by prefixing the key with a path.
+```
+ randomnamespaced/examplekey
+|---namespace----|---name---|
+```
+Note that the namespace includes the final `/`.
+
+All keys for a given namespace will land in the same [block](#blocks). This greatly improves performance for collecting & listing keys, because only a single block must be searched.
+
+# Segmentation
+To reduce load on the file system & and decrease blocking, the dataset is split into 2 layers. Each layer contains the configured number of segments.
+
+## Partitions
+This is the top layer.
+
+When initialising a dataset, the number of partitions (parts) created will be equal to the configured `Parts.Count` property.
+
+Identifying the partition corresponding to a key is the first step to locating (or placing) a key.
 
 ## Blocks
 Each part is split into blocks. The number of blocks in each part is equal to the number of parts. So 8 parts will result in 64 blocks.
@@ -62,6 +85,7 @@ If persistence is enabled in the config via `"Parts.Persist": true`, then each b
 
 ## Partition:Block:Key mapping
 Distance from key to a partition or block is calculated using Hamming distance.
+If the key contains a namespace, only the namespace is hashed.
 ```go
 d := hash(key) ^ blockId // or partId
 ```

@@ -7,12 +7,12 @@ import (
 
 const ID_LEN = 16
 
-// Uses Go's built-in fast hash func FNV, 128a version
+// Uses Go's built-in fast hash func FNV
+// version 128a
 //
-// Takes a string for convenience
-func HashKey(key string) []byte {
+func HashStr(val string) []byte {
 	h := fnv.New128a() // as per ID_LEN
-	h.Write([]byte(key))
+	h.Write([]byte(val))
 	return h.Sum(nil)
 }
 

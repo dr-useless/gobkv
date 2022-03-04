@@ -9,7 +9,7 @@ import (
 	"github.com/intob/rocketkv/protocol"
 )
 
-func ServeConn(conn net.Conn, st *Store, authSecret string, bufferSize int) {
+func (st *Store) ServeConn(conn net.Conn, authSecret string, bufferSize int) {
 	authed := authSecret == ""
 
 	buf := make([]byte, bufferSize)

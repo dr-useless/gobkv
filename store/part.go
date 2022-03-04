@@ -43,12 +43,15 @@ func (p *Part) getClosestBlock(keyHash []byte) *Block {
 	return clBlock
 }
 
-func (p *Part) listKeys(prefix string, o chan string) {
+// Lists all keys matching given prefix
+//
+// If a namespace is provided, results will be prefixed with it
+func (p *Part) listKeys(namespace, prefix string, o chan string) {
 	for _, block := range p.Blocks {
 		block.Mutex.RLock()
 		for k := range block.Slots {
 			if strings.HasPrefix(k, prefix) {
-				o <- k
+				o <- namespace + k
 			}
 		}
 		block.Mutex.RUnlock()

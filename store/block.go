@@ -3,7 +3,6 @@ package store
 import (
 	"encoding/gob"
 	"fmt"
-	"hash/fnv"
 	"os"
 	"path"
 	"sync"
@@ -45,18 +44,6 @@ func NewBlock(id []byte) *Block {
 		Slots:     make(map[string]Slot),
 		ReplState: make(map[uint64]*ReplNodeState),
 	}
-}
-
-// Returns checksum of all slot values
-// For now, only sum Value (not Expires)
-func (b *Block) Checksum() []byte {
-	h := fnv.New128a()
-	b.Mutex.RLock()
-	for _, slot := range b.Slots {
-		h.Write(slot.Value)
-	}
-	b.Mutex.RUnlock()
-	return h.Sum(nil)
 }
 
 // Encodes block slots as gob, and writes to file
