@@ -8,21 +8,31 @@ Minimalisic, highly performant key-value storage, written in Go.
 3. Start `./rocketkv -c cfg.json`
 
 ## Config
-```json
-{
-  "Network": "tcp",
-  "Address": "0.0.0.0:8100",
-  "CertFile": "path/to/x509/cert.pem",
-  "KeyFile": "path/to/x509/key.pem",
-  "AuthSecret": "supersecretsecret,wait,it'sinthereadme",
-  "Dir": "/etc/rocketkv",
-  "ExpiryScanPeriod": 10,
-  "Parts": {
-    "Count": 8,
-    "Persist": true,
-    "WritePeriod": 10
-  }
-}
+This project uses [Viper](https://github.com/spf13/viper).
+
+Unless you explicitly provide a config file with `-c`, the config file should be named `config`, with one of the supported extensions, in one of the supported formats. E.g. TOML, YAML, JSON, CONF.
+
+```toml
+# /tmp/rocketkv/config.toml
+
+# network & auth
+network = "tcp"
+address = ":8100"
+auth = "supersecretsecret,wait,it'sinthereadme"
+
+# general
+segments = 16 # make 256 blocks (16 parts * 16 blocks)
+buffersize = 2000000 # 2MB
+scanperiod = 10
+
+# persistence
+persist = true
+dir = "/etc/rocketkv"
+writeperiod = 10
+
+[tls]
+  cert = "path/to/x509/cert.pem"
+  key = "path/to/x509/key.pem"
 ```
 For periords, unit of time is one second. I will add support for parsing time strings.
 
@@ -62,7 +72,7 @@ Grouping keys is acheived by namespacing. This is done by prefixing the key with
 ```
 Note that the namespace includes the final `/`.
 
-All keys for a given namespace will land in the same [block](#blocks). This greatly improves performance for collecting & listing keys, because only a single block must be searched.
+All keys for a given namespace will land in the same [block](#blocks). This greatly improves performance for collecting & listing multiple keys, because only a single block must be searched.
 
 # Segmentation
 To reduce load on the file system & and decrease blocking, the dataset is split into 2 layers. Each layer contains the configured number of segments.

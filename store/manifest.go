@@ -8,14 +8,10 @@ import (
 	"os"
 	"path"
 
+	"github.com/intob/rocketkv/cfg"
 	"github.com/intob/rocketkv/util"
+	"github.com/spf13/viper"
 )
-
-type PartConfig struct {
-	Count       int
-	Persist     bool
-	WritePeriod int // seconds
-}
 
 type Manifest []PartManifest
 
@@ -41,17 +37,18 @@ func (v *Manifest) Encode() ([]byte, error) {
 }
 
 // ensures that a manifest & block files exist
-func (s *Store) EnsureManifest(cfg *PartConfig) {
-	if !cfg.Persist {
+func ensureManifest(s *Store) {
+	if !viper.GetBool(cfg.PERSIST) {
 		return
 	}
 	s.Parts = make(map[uint64]*Part)
 	manifestPath := path.Join(s.Dir, manifestFileName)
 	manifestFile, err := os.Open(manifestPath)
+	segments := viper.GetInt(cfg.SEGMENTS)
 	if err != nil {
 		fmt.Println("no manifest found, will create...")
 		// parts
-		for p := 0; p < cfg.Count; p++ {
+		for p := 0; p < segments; p++ {
 			partId := make([]byte, util.ID_LEN)
 			_, err := rand.Read(partId)
 			if err != nil {
@@ -60,7 +57,7 @@ func (s *Store) EnsureManifest(cfg *PartConfig) {
 			}
 			part := NewPart(partId)
 			// blocks
-			for b := 0; b < cfg.Count; b++ {
+			for b := 0; b < segments; b++ {
 				blockId := make([]byte, util.ID_LEN)
 				rand.Read(blockId)
 				part.Blocks[util.GetNumber(blockId)] = NewBlock(blockId)

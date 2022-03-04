@@ -1,19 +1,10 @@
 package repl
 
-import (
-	"bufio"
-	"fmt"
-	"net"
-	"time"
-
-	"github.com/intob/rocketkv/protocol"
-	"github.com/intob/rocketkv/store"
-	"github.com/intob/rocketkv/util"
-)
+/*
 
 type ReplService struct {
-	cfg   ReplConfig
 	store *store.Store
+	id    []byte
 	peers map[uint64]*PeerConn
 }
 
@@ -23,21 +14,21 @@ type PeerConn struct {
 }
 
 // TODO: figure out a reconnect/recover mechanism
-func NewReplService(cfg ReplConfig, store *store.Store) *ReplService {
+func NewReplService(store *store.Store) *ReplService {
 	svc := &ReplService{
-		cfg:   cfg,
 		store: store,
 		peers: make(map[uint64]*PeerConn),
 	}
-	svc.cfg.Id = util.HashStr(cfg.Name)
+	name := viper.GetString(cfg.REPL_NAME)
+	svc.id = util.HashStr(name)
 
-	fmt.Println("my repl id:", util.GetNumber(svc.cfg.Id))
+	fmt.Println("my repl id:", util.GetNumber(svc.id))
 
 	go svc.startListener()
 
 	// connect to peers with higher id than mine
 	// peers with a lower ID will connect to me
-	myIdNumber := util.GetNumber(svc.cfg.Id)
+	myIdNumber := util.GetNumber(svc.id)
 	for _, peer := range cfg.Peers {
 		peer.Id = util.HashStr(peer.Name)
 		peerIdNumber := util.GetNumber(peer.Id)
@@ -228,3 +219,5 @@ func (rs *ReplService) writeConn(conn net.Conn, peerConn *PeerConn, ready chan b
 
 	//conn.Close()
 }
+
+*/

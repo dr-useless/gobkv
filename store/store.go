@@ -6,12 +6,33 @@ import (
 	"sync"
 	"time"
 
+	"github.com/intob/rocketkv/cfg"
 	"github.com/intob/rocketkv/util"
+	"github.com/spf13/viper"
 )
 
 type Store struct {
 	Parts map[uint64]*Part
 	Dir   string
+}
+
+func NewStore() *Store {
+	st := &Store{
+		Dir: viper.GetString(cfg.DIR),
+	}
+	ensureManifest(st)
+	readFromBlockFiles(st)
+
+	sp := viper.GetInt(cfg.SCAN_PERIOD)
+	go scanForExpiredKeys(st, sp)
+
+	if viper.GetBool(cfg.PERSIST) {
+		wp := viper.GetInt(cfg.WRITE_PERIOD)
+		dir := viper.GetString(cfg.DIR)
+		go st.Persist(dir, wp)
+	}
+
+	return st
 }
 
 // Get slot for specified key
@@ -45,7 +66,7 @@ func (s *Store) Set(key string, slot Slot, repl bool) {
 	// TODO: think more about this, maybe it's better
 	// to re-replicate except to origin of repl.
 	// This would ensure that all replicas arrive at a consistent state,
-	// even if they are not all connected. However, it increases the ammount
+	// even if they are not all connected. However, it increases the amount
 	// of work that is done. Maybe we can make this a config option.
 	if !repl {
 		for _, replNodeState := range block.ReplState {
@@ -89,7 +110,6 @@ func (s *Store) List(key string, bufferSize int) <-chan string {
 		for _, part := range s.Parts {
 			wg.Add(1)
 			go func(part *Part) {
-				part.listKeys(ns, name, output)
 				wg.Done()
 			}(part)
 		}

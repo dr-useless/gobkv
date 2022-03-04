@@ -1,55 +1,43 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 
-	"github.com/intob/rocketkv/repl"
+	"github.com/intob/rocketkv/cfg"
 	"github.com/intob/rocketkv/store"
 	"github.com/intob/rocketkv/util"
+	"github.com/spf13/viper"
 )
 
-var configFile = flag.String("c", "", "must be a file path")
-
 func main() {
-	flag.Parse()
+	cfg.InitConfig()
 
-	cfg, err := loadConfig()
-	if err != nil {
-		fmt.Println("failed to load config")
-		panic(err)
-	}
-
-	st := store.Store{
-		Dir: cfg.Dir,
-	}
-	st.EnsureManifest(&cfg.Parts)
-	go st.ScanForExpiredKeys(cfg.ExpiryScanPeriod)
-
-	watchdog := Watchdog{
-		store: &st,
-		cfg:   &cfg,
-	}
-	// blocks until parts are ready
-	watchdog.readFromBlockFiles()
+	st := store.NewStore()
 
 	listener, err := util.GetListener(
-		cfg.Network, cfg.Address, cfg.CertFile, cfg.KeyFile)
+		viper.GetString(cfg.NETWORK),
+		viper.GetString(cfg.ADDRESS),
+		viper.GetString(cfg.TLS_CERT),
+		viper.GetString(cfg.TLS_KEY))
 	if err != nil {
 		panic(err)
 	}
 
-	go waitForSigInt(listener, &watchdog)
-	go watchdog.watch()
+	dir := viper.GetString(cfg.DIR)
+	go waitForSigInt(listener, st, dir)
 
 	// repl
-	if cfg.Repl.NetAddr.Address != "" {
-		repl.NewReplService(cfg.Repl, &st)
+	if viper.GetBool(cfg.REPL_ENABLED) {
+		// repl.NewReplService(st)
+		log.Fatal("replication not yet (re-)implemented")
 	}
+
+	auth := viper.GetString(cfg.AUTH)
+	bufSize := viper.GetInt(cfg.BUFFER_SIZE)
 
 	for {
 		conn, err := listener.Accept()
@@ -57,17 +45,17 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		go st.ServeConn(conn, cfg.AuthSecret, cfg.BufferSize)
+		go st.ServeConn(conn, auth, bufSize)
 	}
 }
 
-func waitForSigInt(listener net.Listener, w *Watchdog) {
+func waitForSigInt(listener net.Listener, st *store.Store, dir string) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	for range c {
 		fmt.Println("will exit cleanly")
 		listener.Close()
-		w.writeAllBlocks()
+		st.WriteAllBlocks(dir)
 		os.Exit(0)
 	}
 }

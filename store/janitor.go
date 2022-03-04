@@ -7,10 +7,7 @@ import (
 )
 
 // Delete expired keys
-func (s *Store) ScanForExpiredKeys(scanPeriod int) {
-	if scanPeriod == 0 {
-		scanPeriod = 30
-	}
+func scanForExpiredKeys(s *Store, scanPeriod int) {
 	fmt.Printf("will scan for expired keys every %v seconds\r\n", scanPeriod)
 	for {
 		wg := new(sync.WaitGroup)

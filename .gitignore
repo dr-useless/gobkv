@@ -8,6 +8,10 @@
 *.pprof
 
 rocketkv
-*.json
-state/
-wg.txt
+
+/config.*
+/*.config.*
+
+/state/
+
+wireguard.*
