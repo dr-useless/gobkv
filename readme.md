@@ -2,6 +2,8 @@
 
 Minimalisic, highly performant key-value storage, written in Go.
 
+<img src="https://goreportcard.com/badge/github.com/intob/rocketkv" />
+
 # Usage
 1. Install `go install github.com/intob/rocketkv`
 2. (Optional) Define config.json (see configuration)
