@@ -110,6 +110,7 @@ func (s *Store) List(key string, bufferSize int) <-chan string {
 		for _, part := range s.Parts {
 			wg.Add(1)
 			go func(part *Part) {
+				part.listKeys(ns, name, output)
 				wg.Done()
 			}(part)
 		}
