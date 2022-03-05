@@ -36,12 +36,6 @@ func main() {
 	dir := viper.GetString(cfg.DIR)
 	go waitForSigInt(listener, st, dir)
 
-	// repl
-	if viper.GetBool(cfg.REPL_ENABLED) {
-		// repl.NewReplService(st)
-		log.Fatal("replication not yet (re-)implemented")
-	}
-
 	auth := viper.GetString(cfg.AUTH)
 	bufSize := viper.GetInt(cfg.BUFFER_SIZE)
 

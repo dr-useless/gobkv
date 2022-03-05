@@ -22,14 +22,6 @@ const PERSIST = "persist" // bool
 const WRITE_PERIOD = "writeperiod" // seconds between writing changed blocks to file
 const DIR = "dir"                  // directory for blocks
 
-const REPL_ENABLED = "repl.enabled"
-const REPL_NETWORK = "repl.network"
-const REPL_ADDRESS = "repl.address"
-const REPL_TLS_CERT = "repl.tls.cert"
-const REPL_TLS_KEY = "repl.tls.key"
-const REPL_NAME = "repl.name"
-const REPL_PERIOD = "repl.period"
-
 var configFile = flag.String("c", "", "must be a file path")
 
 // InitConfig loads a config file using Viper
