@@ -12,7 +12,11 @@ Minimalisic, highly performant key-value storage, written in Go.
 ## Config
 This project uses [Viper](https://github.com/spf13/viper).
 
-Unless you explicitly provide a config file with `-c`, the config file should be named `config`, with one of the supported extensions, in one of the supported formats. E.g. TOML, YAML, JSON, CONF.
+Unless you explicitly provide a config file with `-c`, the config file should be named `config.`, with an extension. TOML, YAML & JSON are supported.
+
+The following directories are searched for a config file:
+- `/etc/rocketkv`
+- `.` (pwd)
 
 ```toml
 # /tmp/rocketkv/config.toml
