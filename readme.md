@@ -6,8 +6,7 @@ Minimalisic, highly performant key-value storage, written in Go.
 
 # Usage
 1. Install `go install github.com/intob/rocketkv`
-2. (Optional) Define config.json (see configuration)
-3. Start `./rocketkv -c cfg.json`
+2. Run `rocketkv` (if $GOPATH/bin is in your PATH)
 
 ## Config
 This project uses [Viper](https://github.com/spf13/viper).
