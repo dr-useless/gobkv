@@ -1,7 +1,6 @@
 package store
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/gob"
 	"fmt"
@@ -13,30 +12,21 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Array of PartManifest
 type Manifest []PartManifest
 
+// Contains a PartId & array of blocks
 type PartManifest struct {
 	PartId []byte
 	Blocks []BlockManifest
 }
 
+// Contains a BlockId
 type BlockManifest struct {
 	BlockId []byte
 }
 
-func (v *Manifest) DecodeFrom(b []byte) error {
-	var buf bytes.Buffer
-	buf.Write(b)
-	return gob.NewDecoder(&buf).Decode(v)
-}
-
-func (v *Manifest) Encode() ([]byte, error) {
-	var buf bytes.Buffer
-	err := gob.NewEncoder(&buf).Encode(v)
-	return buf.Bytes(), err
-}
-
-// ensures that a manifest & block files exist
+// ensureManifest ensures that a manifest & block files exist
 func ensureManifest(s *Store) {
 	if !viper.GetBool(cfg.PERSIST) {
 		return
@@ -91,6 +81,7 @@ func ensureManifest(s *Store) {
 	}
 }
 
+// getManifest returns a pointer to a new manifest
 func (s *Store) getManifest() *Manifest {
 	manifest := make(Manifest, 0)
 	for _, part := range s.Parts {

@@ -7,6 +7,7 @@ import (
 	"github.com/intob/rocketkv/util"
 )
 
+// getTestPart returns a part for testing
 func getTestPart(blocks int, putSlots bool) Part {
 	partId, _ := util.RandomId()
 	p := NewPart(partId)

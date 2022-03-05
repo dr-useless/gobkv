@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 )
 
+// Returns cryptographically secure random bytes
+// of length ID_LEN
 func RandomId() ([]byte, error) {
 	id := make([]byte, ID_LEN)
 	_, err := rand.Read(id)

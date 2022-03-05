@@ -18,11 +18,17 @@ func main() {
 
 	st := store.NewStore()
 
-	listener, err := util.GetListener(
-		viper.GetString(cfg.NETWORK),
-		viper.GetString(cfg.ADDRESS),
-		viper.GetString(cfg.TLS_CERT),
-		viper.GetString(cfg.TLS_KEY))
+	network := viper.GetString(cfg.NETWORK)
+	addr := viper.GetString(cfg.ADDRESS)
+	cert := viper.GetString(cfg.TLS_CERT)
+	key := viper.GetString(cfg.TLS_KEY)
+	var listener net.Listener
+	var err error
+	if cert != "" {
+		listener, err = util.GetListenerWithTLS(network, addr, cert, key)
+	} else {
+		listener, err = util.GetListener(network, addr)
+	}
 	if err != nil {
 		panic(err)
 	}

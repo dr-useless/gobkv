@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Contains a map of Parts
+// and the persistence directory
 type Store struct {
 	Parts map[uint64]*Part
 	Dir   string

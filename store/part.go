@@ -43,7 +43,7 @@ func (p *Part) getClosestBlock(keyHash []byte) *Block {
 	return clBlock
 }
 
-// Lists all keys matching given prefix
+// listKeys lists all keys matching given prefix
 //
 // If a namespace is provided, results will be prefixed with it
 func (p *Part) listKeys(namespace, prefix string, o chan string) {
@@ -58,6 +58,7 @@ func (p *Part) listKeys(namespace, prefix string, o chan string) {
 	}
 }
 
+// countKeys returns the number of keys matching the prefix
 func (p *Part) countKeys(prefix string) uint64 {
 	var count uint64
 	for _, block := range p.Blocks {

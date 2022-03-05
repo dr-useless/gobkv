@@ -32,7 +32,7 @@ const REPL_PERIOD = "repl.period"
 
 var configFile = flag.String("c", "", "must be a file path")
 
-// Loads config using Viper
+// InitConfig loads a config file using Viper
 func InitConfig() {
 	initDefaults()
 

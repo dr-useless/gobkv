@@ -20,6 +20,8 @@ func (st *Store) Persist(dir string, period int) {
 	}
 }
 
+// WriteAllBlocks writes all blocks in the store
+// to the file system, in the given directory
 func (st *Store) WriteAllBlocks(dir string) {
 	for _, part := range st.Parts {
 		for _, block := range part.Blocks {

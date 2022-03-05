@@ -10,6 +10,8 @@ import (
 	"github.com/intob/rocketkv/protocol"
 )
 
+// ServeConn handles reading & writing messages
+// from & to a connection
 func (st *Store) ServeConn(conn net.Conn, authSecret string, bufferSize int) {
 	authed := authSecret == ""
 
@@ -44,6 +46,7 @@ loop:
 	conn.Close()
 }
 
+// handle is the main handler for messages
 func (st *Store) handle(conn net.Conn, msg *protocol.Msg, authed bool) error {
 	switch msg.Op {
 	case protocol.OpPing:

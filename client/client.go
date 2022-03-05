@@ -8,18 +8,18 @@ import (
 	"github.com/intob/rocketkv/protocol"
 )
 
-const ErrEmptySecret = "secret is empty"
-const ErrNegativeExpiry = "expires should be 0 or positive"
-const ErrEmptyKey = "key must not be empty"
+const errEmptySecret = "secret is empty"
+const errNegativeExpiry = "expires should be 0 or positive"
+const errEmptyKey = "key must not be empty"
 
-const MSG = "msg"
-
+// Client provides connection & command helpers
 type Client struct {
 	conn net.Conn
 	Msgs chan protocol.Msg
 }
 
-// Returns a pointer to a new Client,
+// NewClient returns a pointer to a new Client
+//
 // Messages can be receieved on Msgs chan.
 func NewClient(conn net.Conn) *Client {
 	c := &Client{
@@ -30,7 +30,7 @@ func NewClient(conn net.Conn) *Client {
 	return c
 }
 
-// Reads from conn, decodes & writes
+// pumpMsgs reads from conn, decodes & writes
 // messages to Msgs chan
 func (c *Client) pumpMsgs() {
 	scan := bufio.NewScanner(c.conn)
@@ -45,7 +45,7 @@ func (c *Client) pumpMsgs() {
 	}
 }
 
-// Encode & publish the given message
+// Send encodes & publishes the given message
 func (c *Client) Send(msg *protocol.Msg) error {
 	msgEnc, err := protocol.EncodeMsg(msg)
 	if err != nil {
@@ -55,7 +55,7 @@ func (c *Client) Send(msg *protocol.Msg) error {
 	return err
 }
 
-// Sends a close message,
+// Close sends a close message,
 // and closes the connection
 func (c *Client) Close() error {
 	defer c.conn.Close()
@@ -64,7 +64,7 @@ func (c *Client) Close() error {
 	})
 }
 
-// Sends a ping message
+// Ping sends a ping message
 //
 // A status message will follow
 func (c *Client) Ping() error {
@@ -73,12 +73,12 @@ func (c *Client) Ping() error {
 	})
 }
 
-// Authenticate using the given secret
+// Auth sends an auth message using the given secret
 //
 // A status message will follow
 func (c *Client) Auth(secret string) error {
 	if secret == "" {
-		return errors.New(ErrEmptySecret)
+		return errors.New(errEmptySecret)
 	}
 	msg := &protocol.Msg{
 		Op:  protocol.OpAuth,
@@ -87,16 +87,16 @@ func (c *Client) Auth(secret string) error {
 	return c.Send(msg)
 }
 
-// Sets the value & expires properties of the key
+// Set the value & expires properties of the key
 //
 // If expires is 0, the key will not expire
 // If ack is true, a response will follow
 func (c *Client) Set(key string, value []byte, expires int64, ack bool) error {
 	if expires < 0 {
-		return errors.New(ErrNegativeExpiry)
+		return errors.New(errNegativeExpiry)
 	}
 	if key == "" {
-		return errors.New(ErrEmptyKey)
+		return errors.New(errEmptyKey)
 	}
 	msg := &protocol.Msg{
 		Op:    protocol.OpSet,
@@ -120,7 +120,7 @@ func (c *Client) Get(key string) error {
 	return c.Send(msg)
 }
 
-// Delete a key
+// Del deletes a key
 //
 // If ack is true, a status response will follow
 func (c *Client) Del(key string, ack bool) error {

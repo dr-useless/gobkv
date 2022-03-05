@@ -26,6 +26,7 @@ type Block struct {
 	ReplState map[uint64]*ReplNodeState // replNodeId
 }
 
+// Holds state for a single replication node
 type ReplNodeState struct {
 	MustSync bool
 }
@@ -37,6 +38,7 @@ type Slot struct {
 	Modified int64
 }
 
+// NewBlock returns a pointer to a new Block
 func NewBlock(id []byte) *Block {
 	return &Block{
 		Id:        id,
@@ -46,7 +48,8 @@ func NewBlock(id []byte) *Block {
 	}
 }
 
-// Encodes block slots as gob, and writes to file
+// WriteToFile encodes blocks as gobs,
+// and writes each to a file
 func (b *Block) WriteToFile(dir string) {
 	if !b.MustWrite {
 		return
@@ -68,7 +71,7 @@ func (b *Block) WriteToFile(dir string) {
 	b.Mutex.RUnlock()
 }
 
-// Decodes block file & populates slots
+// ReadFromFile decodes a block file & populates slots
 func (b *Block) ReadFromFile(dir string) {
 	b.Mutex.Lock()
 	defer b.Mutex.Unlock()
