@@ -3,6 +3,7 @@ package store
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 
@@ -26,55 +27,57 @@ loop:
 			break loop
 		}
 
-		switch msg.Op {
-		case protocol.OpPing:
-			err = handlePing(conn)
-			if err != nil {
-				break loop
-			}
-			continue
-		case protocol.OpAuth:
+		if !authed && msg.Op == protocol.OpAuth {
 			authed = handleAuth(conn, msg, authSecret)
 			if !authed {
 				break loop
 			}
 			continue
-		default:
-			if !authed {
-				respond(conn, &protocol.Msg{
-					Status: protocol.StatusUnauthorized,
-				})
-				break loop
-			}
 		}
 
-		// requires auth
-		switch msg.Op {
-		case protocol.OpGet:
-			err = handleGet(conn, msg, st)
-		case protocol.OpSet:
-			err = handleSet(conn, msg, st)
-		case protocol.OpSetAck:
-			err = handleSet(conn, msg, st)
-		case protocol.OpDel:
-			err = handleDel(conn, msg, st)
-		case protocol.OpDelAck:
-			err = handleDel(conn, msg, st)
-		case protocol.OpList:
-			err = handleList(conn, msg, st)
-		case protocol.OpCount:
-			err = handleCount(conn, msg, st)
-		case protocol.OpClose:
-			break loop
-		}
-
+		err = st.handle(conn, msg, authed)
 		if err != nil {
-			fmt.Println(err)
 			break loop
 		}
 	}
 
 	conn.Close()
+}
+
+func (st *Store) handle(conn net.Conn, msg *protocol.Msg, authed bool) error {
+	switch msg.Op {
+	case protocol.OpPing:
+		return handlePing(conn)
+	default: // gatekeeping
+		if !authed {
+			respond(conn, &protocol.Msg{
+				Status: protocol.StatusUnauthorized,
+			})
+			return errors.New("unauthorized")
+		}
+	}
+
+	// requires auth
+	switch msg.Op {
+	case protocol.OpGet:
+		return handleGet(conn, msg, st)
+	case protocol.OpSet:
+		return handleSet(conn, msg, st)
+	case protocol.OpSetAck:
+		return handleSet(conn, msg, st)
+	case protocol.OpDel:
+		return handleDel(conn, msg, st)
+	case protocol.OpDelAck:
+		return handleDel(conn, msg, st)
+	case protocol.OpList:
+		return handleList(conn, msg, st)
+	case protocol.OpCount:
+		return handleCount(conn, msg, st)
+	case protocol.OpClose:
+		return errors.New("closed by client")
+	default:
+		return errors.New("unrecognized operation")
+	}
 }
 
 func handlePing(conn net.Conn) error {
